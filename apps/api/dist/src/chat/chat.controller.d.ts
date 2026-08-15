@@ -4,9 +4,6 @@ export declare class ChatController {
     private readonly logger;
     constructor(prisma: PrismaService);
     chat(query: string, user: any): Promise<{
-        response: string;
-        sources?: undefined;
-    } | {
         response: any;
         sources: any[];
     }>;

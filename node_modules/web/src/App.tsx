@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 
-type InputType = 'URL' | 'TEXT';
+type InputType = 'URL' | 'TEXT' | 'FILE';
 type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'CHAT';
 
 interface Topic { id: string; name: string; count: number; }
@@ -23,6 +23,7 @@ function App() {
   // Capture State
   const [inputType, setInputType] = useState<InputType>('URL');
   const [inputValue, setInputValue] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [artifactId, setArtifactId] = useState<string | null>(null);
@@ -136,21 +137,33 @@ function App() {
 
   const handleCaptureSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (inputType === 'FILE' && !selectedFile) return;
+    if (inputType !== 'FILE' && !inputValue.trim()) return;
 
     setIsSubmitting(true);
     setStatus('idle');
     setArtifactId(null);
 
     try {
-      const response = await fetchWithAuth('http://localhost:3000/capture', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: inputType,
-          [inputType === 'URL' ? 'sourceUrl' : 'content']: inputValue,
-        }),
-      });
+      let response;
+      if (inputType === 'FILE') {
+        const formData = new FormData();
+        formData.append('file', selectedFile as File);
+        
+        response = await fetchWithAuth('http://localhost:3000/capture/upload', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        response = await fetchWithAuth('http://localhost:3000/capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: inputType,
+            [inputType === 'URL' ? 'sourceUrl' : 'content']: inputValue,
+          }),
+        });
+      }
 
       if (!response.ok) throw new Error('Failed to submit capture');
 
@@ -363,15 +376,26 @@ function App() {
                 <button onClick={() => setInputType('TEXT')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium transition-all duration-200 ${inputType === 'TEXT' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                   <Type className="w-4 h-4" /> Raw Text
                 </button>
+                <button onClick={() => setInputType('FILE')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium transition-all duration-200 ${inputType === 'FILE' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
+                  <Box className="w-4 h-4" /> File
+                </button>
               </div>
 
               <form onSubmit={handleCaptureSubmit} className="space-y-4">
                 {inputType === 'URL' ? (
                   <input type="url" placeholder="https://example.com/article" className="glass-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
-                ) : (
+                ) : inputType === 'TEXT' ? (
                   <textarea placeholder="Paste your text snippet here..." className="glass-input min-h-[120px] resize-y" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
+                ) : (
+                  <div className="glass-input min-h-[120px] flex items-center justify-center border-dashed border-2 hover:border-synora-accent/50 transition-colors relative">
+                    <input type="file" accept=".pdf,image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} disabled={isSubmitting} required />
+                    <div className="text-center pointer-events-none">
+                      <p className="font-medium text-synora-text-primary">{selectedFile ? selectedFile.name : 'Click or Drag file to upload'}</p>
+                      <p className="text-xs text-synora-text-secondary mt-1">Supports PDF, PNG, JPG, WEBP</p>
+                    </div>
+                  </div>
                 )}
-                <button type="submit" disabled={isSubmitting || !inputValue.trim()} className="btn-primary w-full flex items-center justify-center gap-2">
+                <button type="submit" disabled={isSubmitting || (inputType === 'FILE' ? !selectedFile : !inputValue.trim())} className="btn-primary w-full flex items-center justify-center gap-2">
                   {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><Sparkles className="w-5 h-5" /> Send to Synora</>}
                 </button>
               </form>

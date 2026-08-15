@@ -48,6 +48,9 @@ const bullmq_1 = require("@nestjs/bullmq");
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const cheerio = __importStar(require("cheerio"));
+const fs = __importStar(require("fs"));
+const Tesseract = __importStar(require("tesseract.js"));
+const pdfParse = __importStar(require("pdf-parse"));
 let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends bullmq_1.WorkerHost {
     prisma;
     logger = new common_1.Logger(InferenceProcessor_1.name);
@@ -79,6 +82,26 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                 const $ = cheerio.load(html);
                 $('script, style, nav, footer, iframe').remove();
                 contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
+                await this.prisma.artifact.update({
+                    where: { id: artifactId },
+                    data: { content: contentToProcess.substring(0, 5000) },
+                });
+            }
+            else if (artifact.type === 'PDF' && artifact.content) {
+                this.logger.log(`Parsing PDF file: ${artifact.content}`);
+                const dataBuffer = fs.readFileSync(artifact.content);
+                const pdfParseFunc = pdfParse.default || pdfParse;
+                const data = await pdfParseFunc(dataBuffer);
+                contentToProcess = data.text.replace(/\s+/g, ' ').trim();
+                await this.prisma.artifact.update({
+                    where: { id: artifactId },
+                    data: { content: contentToProcess.substring(0, 5000) },
+                });
+            }
+            else if (artifact.type === 'IMAGE' && artifact.content) {
+                this.logger.log(`Running OCR on Image file: ${artifact.content}`);
+                const { data: { text } } = await Tesseract.recognize(artifact.content, 'eng');
+                contentToProcess = text.replace(/\s+/g, ' ').trim();
                 await this.prisma.artifact.update({
                     where: { id: artifactId },
                     data: { content: contentToProcess.substring(0, 5000) },

@@ -7,4 +7,8 @@ export declare class CaptureController {
         message: string;
         artifactId: string;
     }>;
+    uploadFile(file: Express.Multer.File, user: any): Promise<{
+        message: string;
+        artifactId: string;
+    }>;
 }

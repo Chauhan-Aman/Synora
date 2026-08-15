@@ -47,18 +47,24 @@ export class ChatController {
         LIMIT 3
       `;
 
-      if (relevantArtifacts.length === 0) {
-        return { response: "I couldn't find any relevant context in your knowledge graph to answer that question." };
+      // 3. Construct the RAG Prompt
+      let contextText = "No personal knowledge captured yet.";
+      let sources = [];
+      
+      if (relevantArtifacts.length > 0) {
+        contextText = relevantArtifacts
+          .map((a, i) => `[Source ${i + 1}] (${a.sourceUrl || 'Text Snippet'}):\n${a.content}`)
+          .join('\n\n');
+        sources = relevantArtifacts.map(a => a.sourceUrl || 'Text Snippet');
       }
 
-      // 3. Construct the RAG Prompt
-      const contextText = relevantArtifacts
-        .map((a, i) => `[Source ${i + 1}] (${a.sourceUrl || 'Text Snippet'}):\n${a.content}`)
-        .join('\n\n');
-
       const prompt = `
-You are Synora, an intelligent assistant. Answer the user's question using ONLY the provided context from their personal knowledge graph.
-If the answer is not in the context, say you don't know. Be concise but highly helpful. Cite your sources using [Source 1], etc.
+You are Synora, an intelligent and friendly personal assistant. 
+You have access to the user's personal knowledge graph. 
+
+If the user is just saying hello or asking a general conversational question, answer in a friendly, conversational manner.
+If the user is asking a question that requires specific knowledge, answer it using ONLY the provided context below.
+If the context does not contain the answer, politely state that you cannot find the answer in their knowledge graph.
 
 CONTEXT:
 ${contextText}
@@ -87,7 +93,7 @@ ${query}
       
       return { 
         response: generationData.response,
-        sources: relevantArtifacts.map(a => a.sourceUrl || 'Text Snippet')
+        sources: sources
       };
 
     } catch (error) {

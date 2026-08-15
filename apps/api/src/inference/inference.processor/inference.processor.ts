@@ -3,6 +3,9 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as cheerio from 'cheerio';
+import * as fs from 'fs';
+import * as Tesseract from 'tesseract.js';
+import * as pdfParse from 'pdf-parse';
 
 @Processor('capture-processing')
 export class InferenceProcessor extends WorkerHost {
@@ -44,6 +47,26 @@ export class InferenceProcessor extends WorkerHost {
         contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
         
         // Save the extracted text back to the artifact
+        await this.prisma.artifact.update({
+          where: { id: artifactId },
+          data: { content: contentToProcess.substring(0, 5000) },
+        });
+      } else if (artifact.type === 'PDF' && artifact.content) {
+        this.logger.log(`Parsing PDF file: ${artifact.content}`);
+        const dataBuffer = fs.readFileSync(artifact.content);
+        const pdfParseFunc = (pdfParse as any).default || pdfParse;
+        const data = await pdfParseFunc(dataBuffer);
+        contentToProcess = data.text.replace(/\s+/g, ' ').trim();
+        
+        await this.prisma.artifact.update({
+          where: { id: artifactId },
+          data: { content: contentToProcess.substring(0, 5000) },
+        });
+      } else if (artifact.type === 'IMAGE' && artifact.content) {
+        this.logger.log(`Running OCR on Image file: ${artifact.content}`);
+        const { data: { text } } = await Tesseract.recognize(artifact.content, 'eng');
+        contentToProcess = text.replace(/\s+/g, ' ').trim();
+        
         await this.prisma.artifact.update({
           where: { id: artifactId },
           data: { content: contentToProcess.substring(0, 5000) },
