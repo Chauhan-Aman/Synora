@@ -6,6 +6,7 @@ import { CaptureModule } from './capture/capture.module';
 import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from './prisma/prisma.module';
 import { InferenceModule } from './inference/inference.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { InferenceModule } from './inference/inference.module';
     CaptureModule,
     PrismaModule,
     InferenceModule,
+    KnowledgeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -14,6 +14,7 @@ const capture_module_1 = require("./capture/capture.module");
 const bullmq_1 = require("@nestjs/bullmq");
 const prisma_module_1 = require("./prisma/prisma.module");
 const inference_module_1 = require("./inference/inference.module");
+const knowledge_module_1 = require("./knowledge/knowledge.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -29,6 +30,7 @@ exports.AppModule = AppModule = __decorate([
             capture_module_1.CaptureModule,
             prisma_module_1.PrismaModule,
             inference_module_1.InferenceModule,
+            knowledge_module_1.KnowledgeModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
