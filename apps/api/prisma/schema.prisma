@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Artifact {
+  id        String   @id @default(uuid())
+  sourceUrl String?
+  content   String?
+  type      String   // e.g. "URL", "TEXT", "IMAGE", "PDF", "AUDIO"
+  status    String   @default("pending") // e.g. "pending", "processing", "completed", "failed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
