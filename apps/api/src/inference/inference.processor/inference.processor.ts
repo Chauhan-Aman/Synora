@@ -17,7 +17,19 @@ export class InferenceProcessor extends WorkerHost {
     super();
   }
 
+  private chunkText(text: string, chunkSize: number = 1000, overlap: number = 200): string[] {
+    const chunks: string[] = [];
+    let i = 0;
+    while (i < text.length) {
+      chunks.push(text.substring(i, i + chunkSize));
+      i += chunkSize - overlap;
+    }
+    return chunks;
+  }
+
   async process(job: Job<any, any, string>): Promise<any> {
+    const { artifactId } = job.data;
+// ... (I will use multi_replace to be precise)
     const { artifactId } = job.data;
     this.logger.log(`Processing job ${job.id} for artifact ${artifactId}`);
 
@@ -153,29 +165,44 @@ export class InferenceProcessor extends WorkerHost {
         }
       }
 
-      this.logger.log('Generating vector embedding...');
-      try {
-        const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'nomic-embed-text',
-            prompt: contentToProcess.substring(0, 4000)
-          })
-        });
+      this.logger.log('Generating vector embeddings for chunks...');
+      const chunks = this.chunkText(contentToProcess);
+      
+      for (const chunkText of chunks) {
+        if (!chunkText.trim()) continue;
 
-        if (embeddingResponse.ok) {
-          const embedData = await embeddingResponse.json();
-          const vector = embedData.embedding;
-          const vectorString = `[${vector.join(',')}]`;
-          await this.prisma.$executeRaw`UPDATE "Artifact" SET embedding = ${vectorString}::vector WHERE id = ${artifactId}`;
-          this.logger.log('Vector embedding saved successfully!');
-        } else {
-          this.logger.warn(`Failed to generate embedding: ${embeddingResponse.statusText}`);
+        try {
+          const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'nomic-embed-text',
+              prompt: chunkText
+            })
+          });
+
+          if (embeddingResponse.ok) {
+            const embedData = await embeddingResponse.json();
+            const vector = embedData.embedding;
+            const vectorString = `[${vector.join(',')}]`;
+            
+            const newChunk = await this.prisma.chunk.create({
+              data: {
+                text: chunkText,
+                userId: artifact.userId,
+                artifactId: artifactId,
+              }
+            });
+
+            await this.prisma.$executeRaw`UPDATE "Chunk" SET embedding = ${vectorString}::vector WHERE id = ${newChunk.id}`;
+          } else {
+            this.logger.warn(`Failed to generate embedding: ${embeddingResponse.statusText}`);
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to connect to Ollama for embeddings: ${(err as Error).message}`);
         }
-      } catch (err) {
-        this.logger.warn(`Failed to connect to Ollama for embeddings: ${(err as Error).message}`);
       }
+      this.logger.log(`Created ${chunks.length} chunks with vector embeddings!`);
 
       await this.prisma.artifact.update({
         where: { id: artifactId },

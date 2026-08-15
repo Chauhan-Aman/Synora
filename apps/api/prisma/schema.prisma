@@ -19,6 +19,7 @@ model User {
   topics       Topic[]
   entities     Entity[]
   summaries    Summary[]
+  chunks       Chunk[]
 }
 
 model Artifact {
@@ -28,17 +29,28 @@ model Artifact {
   type      String   // e.g. "URL", "TEXT", "IMAGE", "PDF", "AUDIO"
   status    String   @default("pending") // e.g. "pending", "processing", "completed", "failed"
   
-  embedding Unsupported("vector(768)")?
-
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   summary   Summary?
   topics    Topic[]
   entities  Entity[]
+  chunks    Chunk[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Chunk {
+  id         String   @id @default(uuid())
+  text       String
+  embedding  Unsupported("vector(768)")?
+  
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  artifactId String
+  artifact   Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
 }
 
 model Summary {

@@ -7,5 +7,6 @@ export declare class InferenceProcessor extends WorkerHost {
     private readonly OLLAMA_URL;
     private readonly OLLAMA_MODEL;
     constructor(prisma: PrismaService);
+    private chunkText;
     process(job: Job<any, any, string>): Promise<any>;
 }

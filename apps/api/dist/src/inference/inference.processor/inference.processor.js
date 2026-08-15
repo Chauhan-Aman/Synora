@@ -60,7 +60,17 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
         super();
         this.prisma = prisma;
     }
+    chunkText(text, chunkSize = 1000, overlap = 200) {
+        const chunks = [];
+        let i = 0;
+        while (i < text.length) {
+            chunks.push(text.substring(i, i + chunkSize));
+            i += chunkSize - overlap;
+        }
+        return chunks;
+    }
     async process(job) {
+        const { artifactId } = job.data;
         const { artifactId } = job.data;
         this.logger.log(`Processing job ${job.id} for artifact ${artifactId}`);
         const artifact = await this.prisma.artifact.findUnique({
@@ -175,30 +185,42 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                     });
                 }
             }
-            this.logger.log('Generating vector embedding...');
-            try {
-                const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model: 'nomic-embed-text',
-                        prompt: contentToProcess.substring(0, 4000)
-                    })
-                });
-                if (embeddingResponse.ok) {
-                    const embedData = await embeddingResponse.json();
-                    const vector = embedData.embedding;
-                    const vectorString = `[${vector.join(',')}]`;
-                    await this.prisma.$executeRaw `UPDATE "Artifact" SET embedding = ${vectorString}::vector WHERE id = ${artifactId}`;
-                    this.logger.log('Vector embedding saved successfully!');
+            this.logger.log('Generating vector embeddings for chunks...');
+            const chunks = this.chunkText(contentToProcess);
+            for (const chunkText of chunks) {
+                if (!chunkText.trim())
+                    continue;
+                try {
+                    const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: 'nomic-embed-text',
+                            prompt: chunkText
+                        })
+                    });
+                    if (embeddingResponse.ok) {
+                        const embedData = await embeddingResponse.json();
+                        const vector = embedData.embedding;
+                        const vectorString = `[${vector.join(',')}]`;
+                        const newChunk = await this.prisma.chunk.create({
+                            data: {
+                                text: chunkText,
+                                userId: artifact.userId,
+                                artifactId: artifactId,
+                            }
+                        });
+                        await this.prisma.$executeRaw `UPDATE "Chunk" SET embedding = ${vectorString}::vector WHERE id = ${newChunk.id}`;
+                    }
+                    else {
+                        this.logger.warn(`Failed to generate embedding: ${embeddingResponse.statusText}`);
+                    }
                 }
-                else {
-                    this.logger.warn(`Failed to generate embedding: ${embeddingResponse.statusText}`);
+                catch (err) {
+                    this.logger.warn(`Failed to connect to Ollama for embeddings: ${err.message}`);
                 }
             }
-            catch (err) {
-                this.logger.warn(`Failed to connect to Ollama for embeddings: ${err.message}`);
-            }
+            this.logger.log(`Created ${chunks.length} chunks with vector embeddings!`);
             await this.prisma.artifact.update({
                 where: { id: artifactId },
                 data: { status: 'completed' },

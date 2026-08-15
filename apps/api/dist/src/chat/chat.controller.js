@@ -44,21 +44,27 @@ let ChatController = ChatController_1 = class ChatController {
             const embedData = await embeddingResponse.json();
             const vector = embedData.embedding;
             const vectorString = `[${vector.join(',')}]`;
-            this.logger.log(`Searching vector database for relevant artifacts for user ${user.userId}...`);
-            const relevantArtifacts = await this.prisma.$queryRaw `
-        SELECT id, content, "sourceUrl", 1 - (embedding <=> ${vectorString}::vector) as similarity
-        FROM "Artifact"
-        WHERE embedding IS NOT NULL AND "userId" = ${user.userId}
-        ORDER BY embedding <=> ${vectorString}::vector
-        LIMIT 3
+            this.logger.log(`Searching vector database for relevant chunks for user ${user.userId}...`);
+            const relevantChunks = await this.prisma.$queryRaw `
+        SELECT 
+          c.id, 
+          c.text as content, 
+          a."sourceUrl" as "sourceUrl", 
+          1 - (c.embedding <=> ${vectorString}::vector) as similarity
+        FROM "Chunk" c
+        JOIN "Artifact" a ON c."artifactId" = a.id
+        WHERE c.embedding IS NOT NULL AND c."userId" = ${user.userId}
+        ORDER BY c.embedding <=> ${vectorString}::vector
+        LIMIT 5
       `;
             let contextText = "No personal knowledge captured yet.";
             let sources = [];
-            if (relevantArtifacts.length > 0) {
-                contextText = relevantArtifacts
-                    .map((a, i) => `[Source ${i + 1}] (${a.sourceUrl || 'Text Snippet'}):\n${a.content}`)
+            if (relevantChunks.length > 0) {
+                contextText = relevantChunks
+                    .map((c, i) => `[Source ${i + 1}] (${c.sourceUrl || 'Text Snippet'}):\n${c.content}`)
                     .join('\n\n');
-                sources = relevantArtifacts.map(a => a.sourceUrl || 'Text Snippet');
+                const allSources = relevantChunks.map(c => c.sourceUrl || 'Text Snippet');
+                sources = [...new Set(allSources)];
             }
             const prompt = `
 You are Synora, an intelligent and friendly personal assistant. 
@@ -74,7 +80,7 @@ ${contextText}
 QUESTION:
 ${query}
 `;
-            this.logger.log(`Asking Ollama (llama3.2) with ${relevantArtifacts.length} sources...`);
+            this.logger.log(`Asking Ollama (llama3.2) with ${relevantChunks.length} sources...`);
             const generateResponse = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
