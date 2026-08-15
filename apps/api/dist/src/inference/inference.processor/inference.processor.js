@@ -71,7 +71,6 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
     }
     async process(job) {
         const { artifactId } = job.data;
-        const { artifactId } = job.data;
         this.logger.log(`Processing job ${job.id} for artifact ${artifactId}`);
         const artifact = await this.prisma.artifact.findUnique({
             where: { id: artifactId },
@@ -125,15 +124,15 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
         TEXT TO ANALYZE:
         "${contentToProcess.substring(0, 4000)}"
         
-        Respond ONLY with a valid JSON object matching this exact schema, do not include markdown blocks or any other text:
+        Respond ONLY with a valid JSON object matching this exact schema. DO NOT just copy the example text in the schema, you must GENERATE REAL content based on the TEXT TO ANALYZE:
         {
           "summary": "A 2-3 sentence summary of the text",
-          "topics": ["Topic 1", "Topic 2", "Topic 3"],
+          "topics": ["Real Topic 1", "Real Topic 2", "Real Topic 3"],
           "entities": [
-            {"name": "Entity Name", "type": "PERSON | ORGANIZATION | TECHNOLOGY | LOCATION | CONCEPT"}
+            {"name": "Real Entity Name", "type": "PERSON | ORGANIZATION | TECHNOLOGY | LOCATION | CONCEPT"}
           ],
           "flashcards": [
-            {"question": "A specific question testing key knowledge?", "answer": "The concise answer."}
+            {"question": "A real question testing a specific fact from the text", "answer": "The real factual answer from the text"}
           ]
         }
       `;

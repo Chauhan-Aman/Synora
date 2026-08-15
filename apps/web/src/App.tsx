@@ -146,7 +146,9 @@ function App() {
     setIsLoadingLearn(true);
     try {
       const res = await fetchWithAuth('http://localhost:3000/learn/due');
-      setFlashcards(await res.json());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to fetch');
+      setFlashcards(data);
       setCurrentCardIndex(0);
       setIsFlipped(false);
     } catch (error) {

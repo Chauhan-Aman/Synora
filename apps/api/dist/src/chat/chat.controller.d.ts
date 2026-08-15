@@ -5,6 +5,6 @@ export declare class ChatController {
     constructor(prisma: PrismaService);
     chat(query: string, user: any): Promise<{
         response: any;
-        sources: any[];
+        sources: string[];
     }>;
 }

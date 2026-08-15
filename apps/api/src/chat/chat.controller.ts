@@ -54,7 +54,7 @@ export class ChatController {
 
       // 3. Construct the RAG Prompt
       let contextText = "No personal knowledge captured yet.";
-      let sources = [];
+      let sources: string[] = [];
       
       if (relevantChunks.length > 0) {
         contextText = relevantChunks
