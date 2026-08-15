@@ -7,6 +7,8 @@ import * as cheerio from 'cheerio';
 @Processor('capture-processing')
 export class InferenceProcessor extends WorkerHost {
   private readonly logger = new Logger(InferenceProcessor.name);
+  private readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
+  private readonly OLLAMA_MODEL = 'llama3.2'; // Default model
 
   constructor(private readonly prisma: PrismaService) {
     super();
@@ -16,17 +18,14 @@ export class InferenceProcessor extends WorkerHost {
     const { artifactId } = job.data;
     this.logger.log(`Processing job ${job.id} for artifact ${artifactId}`);
 
-    // Fetch the artifact from the database
     const artifact = await this.prisma.artifact.findUnique({
       where: { id: artifactId },
     });
 
     if (!artifact) {
-      this.logger.error(`Artifact ${artifactId} not found!`);
       throw new Error('Artifact not found');
     }
 
-    // Update status to processing
     await this.prisma.artifact.update({
       where: { id: artifactId },
       data: { status: 'processing' },
@@ -35,72 +34,107 @@ export class InferenceProcessor extends WorkerHost {
     try {
       let contentToProcess = artifact.content || '';
 
-      // If it's a URL, we need to fetch the HTML and extract text
       if (artifact.type === 'URL' && artifact.sourceUrl) {
         this.logger.log(`Fetching content from URL: ${artifact.sourceUrl}`);
         const response = await fetch(artifact.sourceUrl);
         const html = await response.text();
         
-        // Use cheerio to parse the text and remove scripts/styles
         const $ = cheerio.load(html);
         $('script, style, nav, footer, iframe').remove();
         contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
         
-        // Save the extracted text back to the artifact for reference
+        // Save the extracted text back to the artifact
         await this.prisma.artifact.update({
           where: { id: artifactId },
-          data: { content: contentToProcess.substring(0, 5000) }, // limit to 5000 chars for MVP
+          data: { content: contentToProcess.substring(0, 5000) },
         });
       }
 
-      // --- MOCK AI EXTRACTION ---
-      // In the future, we will send `contentToProcess` to OpenAI/Gemini here.
-      this.logger.log('Running simulated AI extraction...');
-      await new Promise((resolve) => setTimeout(resolve, 2500)); // 2.5s delay
+      this.logger.log(`Sending to Ollama (${this.OLLAMA_MODEL}) for extraction...`);
       
-      const mockSummary = "This is an AI-generated summary of the captured content, highlighting the most important key points.";
-      const mockTopics = ["Technology", "System Design", "Artificial Intelligence"];
-      const mockEntities = [
-        { name: "Synora", type: "PRODUCT" },
-        { name: "NestJS", type: "TECHNOLOGY" },
-      ];
-      // --------------------------
+      const prompt = `
+        You are a highly capable AI specialized in extracting structured knowledge graphs from text.
+        Extract the most important topics, named entities, and provide a short summary of the following text.
+        
+        TEXT TO ANALYZE:
+        "${contentToProcess.substring(0, 4000)}"
+        
+        Respond ONLY with a valid JSON object matching this exact schema, do not include markdown blocks or any other text:
+        {
+          "summary": "A 2-3 sentence summary of the text",
+          "topics": ["Topic 1", "Topic 2", "Topic 3"],
+          "entities": [
+            {"name": "Entity Name", "type": "PERSON | ORGANIZATION | TECHNOLOGY | LOCATION | CONCEPT"}
+          ]
+        }
+      `;
 
-      // Save the Mock Extracted Data into the Knowledge Graph
-      this.logger.log('Saving extracted metadata to the database...');
+      let extractedData;
+
+      try {
+        const ollamaResponse = await fetch(this.OLLAMA_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: this.OLLAMA_MODEL,
+            prompt: prompt,
+            stream: false,
+            format: 'json'
+          })
+        });
+
+        if (!ollamaResponse.ok) {
+          throw new Error(`Ollama responded with status: ${ollamaResponse.status}`);
+        }
+
+        const data = await ollamaResponse.json();
+        extractedData = JSON.parse(data.response);
+      } catch (ollamaError) {
+        this.logger.error(`Ollama Extraction Failed: ${(ollamaError as Error).message}`);
+        this.logger.warn('Please ensure Ollama is installed and running on port 11434 with the llama3.2 model.');
+        throw new Error('LLM Extraction Failed');
+      }
+
+      this.logger.log('Ollama extraction successful! Saving metadata to the database...');
       
       // Save Summary
-      await this.prisma.summary.create({
-        data: {
-          text: mockSummary,
-          artifactId: artifactId,
-        },
-      });
-
-      // Save Topics & Entities (upsert to avoid duplicates, then connect to artifact)
-      for (const topic of mockTopics) {
-        await this.prisma.topic.upsert({
-          where: { name: topic },
-          update: { artifacts: { connect: { id: artifactId } } },
-          create: { name: topic, artifacts: { connect: { id: artifactId } } },
+      if (extractedData.summary) {
+        await this.prisma.summary.create({
+          data: {
+            text: extractedData.summary,
+            artifactId: artifactId,
+          },
         });
       }
 
-      for (const entity of mockEntities) {
-        await this.prisma.entity.upsert({
-          where: { name_type: { name: entity.name, type: entity.type } },
-          update: { artifacts: { connect: { id: artifactId } } },
-          create: { name: entity.name, type: entity.type, artifacts: { connect: { id: artifactId } } },
-        });
+      // Save Topics
+      if (Array.isArray(extractedData.topics)) {
+        for (const topic of extractedData.topics) {
+          await this.prisma.topic.upsert({
+            where: { name: topic },
+            update: { artifacts: { connect: { id: artifactId } } },
+            create: { name: topic, artifacts: { connect: { id: artifactId } } },
+          });
+        }
       }
 
-      // Mark the job as completely finished
+      // Save Entities
+      if (Array.isArray(extractedData.entities)) {
+        for (const entity of extractedData.entities) {
+          await this.prisma.entity.upsert({
+            where: { name_type: { name: entity.name, type: entity.type } },
+            update: { artifacts: { connect: { id: artifactId } } },
+            create: { name: entity.name, type: entity.type, artifacts: { connect: { id: artifactId } } },
+          });
+        }
+      }
+
       await this.prisma.artifact.update({
         where: { id: artifactId },
         data: { status: 'completed' },
       });
 
-      this.logger.log(`Successfully completed job ${job.id} for artifact ${artifactId}`);
+      this.logger.log(`Successfully completed job ${job.id}`);
     } catch (error) {
       this.logger.error(`Failed to process job ${job.id}: ${(error as Error).message}`);
       await this.prisma.artifact.update({
