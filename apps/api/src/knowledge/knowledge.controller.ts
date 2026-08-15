@@ -50,4 +50,41 @@ export class KnowledgeController {
       count: entity._count.artifacts
     }));
   }
+
+  @Get('graph')
+  async getGraph() {
+    const artifacts = await this.prisma.artifact.findMany({
+      include: { topics: true, entities: true },
+      where: { status: 'completed' }
+    });
+
+    const nodes = [];
+    const links = [];
+    const addedNodes = new Set();
+
+    for (const artifact of artifacts) {
+      if (!addedNodes.has(artifact.id)) {
+        nodes.push({ id: artifact.id, name: artifact.sourceUrl || 'Artifact', group: 'artifact' });
+        addedNodes.add(artifact.id);
+      }
+
+      for (const topic of artifact.topics) {
+        if (!addedNodes.has(topic.id)) {
+          nodes.push({ id: topic.id, name: topic.name, group: 'topic' });
+          addedNodes.add(topic.id);
+        }
+        links.push({ source: artifact.id, target: topic.id });
+      }
+
+      for (const entity of artifact.entities) {
+        if (!addedNodes.has(entity.id)) {
+          nodes.push({ id: entity.id, name: entity.name, group: 'entity' });
+          addedNodes.add(entity.id);
+        }
+        links.push({ source: artifact.id, target: entity.id });
+      }
+    }
+
+    return { nodes, links };
+  }
 }
