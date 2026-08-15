@@ -307,6 +307,10 @@ function App() {
                         width={900}
                         height={600}
                         nodeRelSize={6}
+                        dagMode="lr"
+                        dagLevelDistance={200}
+                        linkDirectionalArrowLength={4}
+                        linkDirectionalArrowRelPos={1}
                         nodeCanvasObject={renderNode}
                         nodePointerAreaPaint={(node, color, ctx) => {
                           ctx.fillStyle = color;

@@ -63,8 +63,18 @@ export class KnowledgeController {
     const addedNodes = new Set();
 
     for (const artifact of artifacts) {
+      let artifactName = 'Raw Text Snippet';
+      if (artifact.sourceUrl) {
+        try {
+          const url = new URL(artifact.sourceUrl);
+          artifactName = url.hostname;
+        } catch {
+          artifactName = artifact.sourceUrl.length > 30 ? artifact.sourceUrl.substring(0, 30) + '...' : artifact.sourceUrl;
+        }
+      }
+
       if (!addedNodes.has(artifact.id)) {
-        nodes.push({ id: artifact.id, name: artifact.sourceUrl || 'Artifact', group: 'artifact' });
+        nodes.push({ id: artifact.id, name: artifactName, group: 'artifact' });
         addedNodes.add(artifact.id);
       }
 
@@ -73,7 +83,7 @@ export class KnowledgeController {
           nodes.push({ id: topic.id, name: topic.name, group: 'topic' });
           addedNodes.add(topic.id);
         }
-        links.push({ source: artifact.id, target: topic.id });
+        links.push({ source: topic.id, target: artifact.id });
       }
 
       for (const entity of artifact.entities) {
