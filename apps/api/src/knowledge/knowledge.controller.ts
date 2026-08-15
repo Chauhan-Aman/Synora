@@ -1,14 +1,17 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 
+@UseGuards(JwtAuthGuard)
 @Controller('knowledge')
 export class KnowledgeController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('topics')
-  async getTopics() {
-    // Fetch all topics and include the count of artifacts for each
+  async getTopics(@CurrentUser() user: any) {
     const topics = await this.prisma.topic.findMany({
+      where: { userId: user.userId },
       include: {
         _count: {
           select: { artifacts: true }
@@ -29,8 +32,9 @@ export class KnowledgeController {
   }
 
   @Get('entities')
-  async getEntities() {
+  async getEntities(@CurrentUser() user: any) {
     const entities = await this.prisma.entity.findMany({
+      where: { userId: user.userId },
       include: {
         _count: {
           select: { artifacts: true }
@@ -52,10 +56,13 @@ export class KnowledgeController {
   }
 
   @Get('graph')
-  async getGraph() {
+  async getGraph(@CurrentUser() user: any) {
     const artifacts = await this.prisma.artifact.findMany({
-      include: { topics: true, entities: true, summary: true },
-      where: { status: 'completed' }
+      where: { 
+        userId: user.userId,
+        status: 'completed' 
+      },
+      include: { topics: true, entities: true, summary: true }
     });
 
     const nodes = [];

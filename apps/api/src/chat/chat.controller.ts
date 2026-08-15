@@ -1,6 +1,9 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Logger, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 
+@UseGuards(JwtAuthGuard)
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
@@ -8,7 +11,7 @@ export class ChatController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
-  async chat(@Body('query') query: string) {
+  async chat(@Body('query') query: string, @CurrentUser() user: any) {
     if (!query) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
@@ -34,12 +37,12 @@ export class ChatController {
       const vectorString = `[${vector.join(',')}]`;
 
       // 2. Perform Vector Search (Cosine Distance <=> or Euclidean <->)
-      this.logger.log('Searching vector database for relevant artifacts...');
+      this.logger.log(`Searching vector database for relevant artifacts for user ${user.userId}...`);
       
       const relevantArtifacts = await this.prisma.$queryRaw<any[]>`
         SELECT id, content, "sourceUrl", 1 - (embedding <=> ${vectorString}::vector) as similarity
         FROM "Artifact"
-        WHERE embedding IS NOT NULL
+        WHERE embedding IS NOT NULL AND "userId" = ${user.userId}
         ORDER BY embedding <=> ${vectorString}::vector
         LIMIT 3
       `;

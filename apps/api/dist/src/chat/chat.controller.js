@@ -16,13 +16,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatController = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const current_user_decorator_1 = require("../auth/current-user.decorator");
 let ChatController = ChatController_1 = class ChatController {
     prisma;
     logger = new common_1.Logger(ChatController_1.name);
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async chat(query) {
+    async chat(query, user) {
         if (!query) {
             throw new common_1.HttpException('Query is required', common_1.HttpStatus.BAD_REQUEST);
         }
@@ -42,11 +44,11 @@ let ChatController = ChatController_1 = class ChatController {
             const embedData = await embeddingResponse.json();
             const vector = embedData.embedding;
             const vectorString = `[${vector.join(',')}]`;
-            this.logger.log('Searching vector database for relevant artifacts...');
+            this.logger.log(`Searching vector database for relevant artifacts for user ${user.userId}...`);
             const relevantArtifacts = await this.prisma.$queryRaw `
         SELECT id, content, "sourceUrl", 1 - (embedding <=> ${vectorString}::vector) as similarity
         FROM "Artifact"
-        WHERE embedding IS NOT NULL
+        WHERE embedding IS NOT NULL AND "userId" = ${user.userId}
         ORDER BY embedding <=> ${vectorString}::vector
         LIMIT 3
       `;
@@ -95,11 +97,13 @@ exports.ChatController = ChatController;
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)('query')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "chat", null);
 exports.ChatController = ChatController = ChatController_1 = __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('chat'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], ChatController);

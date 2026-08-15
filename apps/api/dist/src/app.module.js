@@ -16,6 +16,7 @@ const prisma_module_1 = require("./prisma/prisma.module");
 const inference_module_1 = require("./inference/inference.module");
 const knowledge_module_1 = require("./knowledge/knowledge.module");
 const chat_module_1 = require("./chat/chat.module");
+const auth_module_1 = require("./auth/auth.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -33,6 +34,7 @@ exports.AppModule = AppModule = __decorate([
             inference_module_1.InferenceModule,
             knowledge_module_1.KnowledgeModule,
             chat_module_1.ChatModule,
+            auth_module_1.AuthModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

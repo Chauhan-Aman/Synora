@@ -8,6 +8,19 @@ datasource db {
   extensions = [vector]
 }
 
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  artifacts    Artifact[]
+  topics       Topic[]
+  entities     Entity[]
+  summaries    Summary[]
+}
+
 model Artifact {
   id        String   @id @default(uuid())
   sourceUrl String?
@@ -16,6 +29,9 @@ model Artifact {
   status    String   @default("pending") // e.g. "pending", "processing", "completed", "failed"
   
   embedding Unsupported("vector(768)")?
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   summary   Summary?
   topics    Topic[]
@@ -28,21 +44,35 @@ model Artifact {
 model Summary {
   id         String   @id @default(uuid())
   text       String
+  
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   artifactId String   @unique
   artifact   Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
 }
 
 model Topic {
   id        String     @id @default(uuid())
-  name      String     @unique
+  name      String
+  
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   artifacts Artifact[]
+
+  @@unique([name, userId])
 }
 
 model Entity {
   id        String     @id @default(uuid())
   name      String
   type      String     // e.g., "PERSON", "ORGANIZATION", "LOCATION"
+  
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   artifacts Artifact[]
 
-  @@unique([name, type])
+  @@unique([name, type, userId])
 }

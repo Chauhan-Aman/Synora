@@ -103,6 +103,7 @@ export class InferenceProcessor extends WorkerHost {
           data: {
             text: extractedData.summary,
             artifactId: artifactId,
+            userId: artifact.userId,
           },
         });
       }
@@ -111,9 +112,9 @@ export class InferenceProcessor extends WorkerHost {
       if (Array.isArray(extractedData.topics)) {
         for (const topic of extractedData.topics) {
           await this.prisma.topic.upsert({
-            where: { name: topic },
+            where: { name_userId: { name: topic, userId: artifact.userId } },
             update: { artifacts: { connect: { id: artifactId } } },
-            create: { name: topic, artifacts: { connect: { id: artifactId } } },
+            create: { name: topic, userId: artifact.userId, artifacts: { connect: { id: artifactId } } },
           });
         }
       }
@@ -122,9 +123,9 @@ export class InferenceProcessor extends WorkerHost {
       if (Array.isArray(extractedData.entities)) {
         for (const entity of extractedData.entities) {
           await this.prisma.entity.upsert({
-            where: { name_type: { name: entity.name, type: entity.type } },
+            where: { name_type_userId: { name: entity.name, type: entity.type, userId: artifact.userId } },
             update: { artifacts: { connect: { id: artifactId } } },
-            create: { name: entity.name, type: entity.type, artifacts: { connect: { id: artifactId } } },
+            create: { name: entity.name, type: entity.type, userId: artifact.userId, artifacts: { connect: { id: artifactId } } },
           });
         }
       }

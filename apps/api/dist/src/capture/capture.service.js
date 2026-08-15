@@ -26,13 +26,14 @@ let CaptureService = CaptureService_1 = class CaptureService {
         this.prisma = prisma;
         this.captureQueue = captureQueue;
     }
-    async create(createCaptureDto) {
+    async create(createCaptureDto, userId) {
         const artifact = await this.prisma.artifact.create({
             data: {
                 type: createCaptureDto.type,
                 sourceUrl: createCaptureDto.sourceUrl,
                 content: createCaptureDto.content,
                 status: 'pending',
+                userId: userId,
             },
         });
         await this.captureQueue.add('process-capture', {

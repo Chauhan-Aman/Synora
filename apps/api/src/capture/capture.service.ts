@@ -13,7 +13,7 @@ export class CaptureService {
     @InjectQueue('capture-processing') private captureQueue: Queue,
   ) {}
 
-  async create(createCaptureDto: CreateCaptureDto) {
+  async create(createCaptureDto: CreateCaptureDto, userId: string) {
     // 1. Save to DB with 'pending' status
     const artifact = await this.prisma.artifact.create({
       data: {
@@ -21,6 +21,7 @@ export class CaptureService {
         sourceUrl: createCaptureDto.sourceUrl,
         content: createCaptureDto.content,
         status: 'pending',
+        userId: userId,
       },
     });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 type InputType = 'URL' | 'TEXT';
@@ -10,6 +10,14 @@ interface Entity { id: string; name: string; type: string; count: number; }
 interface ChatMessage { role: 'user' | 'assistant'; content: string; sources?: string[]; }
 
 function App() {
+  // Authentication State
+  const [token, setToken] = useState<string | null>(localStorage.getItem('synora_token'));
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
   const [activeTab, setActiveTab] = useState<Tab>('KNOWLEDGE');
   
   // Capture State
@@ -41,32 +49,80 @@ function App() {
     });
     resizeObserver.observe(graphContainerRef.current);
     return () => resizeObserver.disconnect();
-  }, [knowledgeView, activeTab]);
+  }, [knowledgeView, activeTab, token]);
 
   // Chat State
   const [chatQuery, setChatQuery] = useState('');
   const [isChatting, setIsChatting] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
     role: 'assistant',
-    content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured!"
+    content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
   }]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (activeTab === 'KNOWLEDGE') fetchKnowledge();
-  }, [activeTab]);
+    if (token && activeTab === 'KNOWLEDGE') fetchKnowledge();
+  }, [activeTab, token]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
+  const fetchWithAuth = async (url: string, options: any = {}) => {
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`
+    };
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+      handleLogout();
+      throw new Error('Unauthorized');
+    }
+    return res;
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticating(true);
+    setAuthError('');
+
+    try {
+      const endpoint = authMode === 'LOGIN' ? '/auth/login' : '/auth/register';
+      const res = await fetch(`http://localhost:3000${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Authentication failed');
+
+      localStorage.setItem('synora_token', data.access_token);
+      setToken(data.access_token);
+      setEmail('');
+      setPassword('');
+    } catch (err: any) {
+      setAuthError(err.message);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('synora_token');
+    setToken(null);
+    setTopics([]);
+    setEntities([]);
+    setGraphData({ nodes: [], links: [] });
+  };
+
   const fetchKnowledge = async () => {
     setIsLoadingKnowledge(true);
     try {
       const [topicsRes, entitiesRes, graphRes] = await Promise.all([
-        fetch('http://localhost:3000/knowledge/topics'),
-        fetch('http://localhost:3000/knowledge/entities'),
-        fetch('http://localhost:3000/knowledge/graph')
+        fetchWithAuth('http://localhost:3000/knowledge/topics'),
+        fetchWithAuth('http://localhost:3000/knowledge/entities'),
+        fetchWithAuth('http://localhost:3000/knowledge/graph')
       ]);
       setTopics(await topicsRes.json());
       setEntities(await entitiesRes.json());
@@ -87,7 +143,7 @@ function App() {
     setArtifactId(null);
 
     try {
-      const response = await fetch('http://localhost:3000/capture', {
+      const response = await fetchWithAuth('http://localhost:3000/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,7 +176,7 @@ function App() {
     setIsChatting(true);
 
     try {
-      const response = await fetch('http://localhost:3000/chat', {
+      const response = await fetchWithAuth('http://localhost:3000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMessage }),
@@ -151,9 +207,8 @@ function App() {
     const fontSize = 14 / globalScale;
     ctx.font = `600 ${fontSize}px Inter, sans-serif`;
     const textWidth = ctx.measureText(label).width;
-    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.8); // padding
+    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.8);
 
-    // Draw pill background
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.beginPath();
     ctx.roundRect(
@@ -161,34 +216,110 @@ function App() {
       node.y - bckgDimensions[1] / 2, 
       bckgDimensions[0], 
       bckgDimensions[1], 
-      5 / globalScale // border radius
+      5 / globalScale 
     );
     ctx.fill();
 
-    // Draw pill border based on group
     ctx.lineWidth = 1.5 / globalScale;
-    if (node.group === 'artifact') ctx.strokeStyle = '#10b981'; // emerald
-    else if (node.group === 'topic') ctx.strokeStyle = '#8b5cf6'; // violet
-    else ctx.strokeStyle = '#3b82f6'; // blue
+    if (node.group === 'artifact') ctx.strokeStyle = '#10b981';
+    else if (node.group === 'topic') ctx.strokeStyle = '#8b5cf6';
+    else ctx.strokeStyle = '#3b82f6';
     
-    // Highlight selected node
     if (selectedNode && selectedNode.id === node.id) {
       ctx.lineWidth = 3 / globalScale;
-      ctx.strokeStyle = '#f59e0b'; // amber
+      ctx.strokeStyle = '#f59e0b';
     }
     ctx.stroke();
 
-    // Draw text
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffffff';
     ctx.fillText(label, node.x, node.y);
   };
 
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
+        <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-synora-accent/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="glass-panel w-full max-w-md p-8 relative z-10 animate-fade-in shadow-2xl border-synora-border/50">
+          <div className="flex justify-center mb-6">
+            <div className="p-3 bg-synora-surface rounded-2xl border border-synora-border shadow-lg">
+              <Sparkles className="w-10 h-10 text-synora-accent" />
+            </div>
+          </div>
+          
+          <h2 className="text-3xl font-bold text-center mb-2">Synora Engine</h2>
+          <p className="text-synora-text-secondary text-center mb-8">Your private knowledge operating system</p>
+
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-6 text-sm text-center">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-synora-text-secondary mb-1">Email</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+                className="glass-input w-full bg-synora-bg/50" 
+                placeholder="you@example.com"
+                required 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-synora-text-secondary mb-1">Password</label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className="glass-input w-full bg-synora-bg/50" 
+                placeholder="••••••••"
+                required 
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              disabled={isAuthenticating} 
+              className="btn-primary w-full mt-6 py-3 flex justify-center items-center gap-2"
+            >
+              {isAuthenticating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />}
+              {authMode === 'LOGIN' ? 'Access Knowledge Graph' : 'Create Account'}
+            </button>
+          </form>
+
+          <p className="text-center mt-6 text-sm text-synora-text-secondary">
+            {authMode === 'LOGIN' ? "Don't have an account?" : "Already have an account?"}{' '}
+            <button 
+              onClick={() => {
+                setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN');
+                setAuthError('');
+              }} 
+              className="text-synora-accent hover:underline font-medium"
+            >
+              {authMode === 'LOGIN' ? 'Sign up' : 'Log in'}
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden h-screen">
       <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-synora-accent/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-synora-accent/10 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="absolute top-6 right-6 z-50">
+        <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-synora-surface border border-synora-border rounded-lg text-synora-text-secondary hover:text-white hover:border-synora-accent/50 transition-colors shadow-lg">
+          <LogOut className="w-4 h-4" /> Logout
+        </button>
+      </div>
 
       <div className="w-full max-w-5xl z-10 flex flex-col h-full animate-fade-in">
         
@@ -345,9 +476,7 @@ function App() {
                           linkWidth={1.5}
                           d3VelocityDecay={0.3}
                           cooldownTicks={100}
-                          onNodeClick={(node) => {
-                            setSelectedNode(node);
-                          }}
+                          onNodeClick={(node) => setSelectedNode(node)}
                           onNodeDragEnd={(node) => {
                             node.fx = node.x;
                             node.fy = node.y;
@@ -355,14 +484,12 @@ function App() {
                         />
                       )}
                       
-                      {/* Legend */}
                       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none bg-synora-surface/80 backdrop-blur px-3 py-2 rounded-lg border border-synora-border">
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-xs text-synora-text-secondary font-medium">Documents</span></div>
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-violet-500"></div><span className="text-xs text-synora-text-secondary font-medium">Topics</span></div>
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-xs text-synora-text-secondary font-medium">Entities</span></div>
                       </div>
 
-                      {/* Learning Module Sidebar */}
                       {selectedNode && (
                         <div className="absolute top-0 right-0 h-full w-[350px] bg-synora-surface/95 backdrop-blur-xl border-l border-synora-border shadow-2xl p-6 flex flex-col animate-fade-in z-20">
                           <div className="flex justify-between items-start mb-6">
@@ -461,7 +588,7 @@ function App() {
                     type="text"
                     value={chatQuery}
                     onChange={(e) => setChatQuery(e.target.value)}
-                    placeholder="Ask a question about the things you've captured..."
+                    placeholder="Ask a question about your knowledge graph..."
                     className="glass-input pr-12 w-full bg-synora-bg"
                     disabled={isChatting}
                   />

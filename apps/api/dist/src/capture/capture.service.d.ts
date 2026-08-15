@@ -6,7 +6,7 @@ export declare class CaptureService {
     private captureQueue;
     private readonly logger;
     constructor(prisma: PrismaService, captureQueue: Queue);
-    create(createCaptureDto: CreateCaptureDto): Promise<{
+    create(createCaptureDto: CreateCaptureDto, userId: string): Promise<{
         message: string;
         artifactId: string;
     }>;

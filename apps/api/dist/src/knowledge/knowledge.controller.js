@@ -8,17 +8,23 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KnowledgeController = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const current_user_decorator_1 = require("../auth/current-user.decorator");
 let KnowledgeController = class KnowledgeController {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async getTopics() {
+    async getTopics(user) {
         const topics = await this.prisma.topic.findMany({
+            where: { userId: user.userId },
             include: {
                 _count: {
                     select: { artifacts: true }
@@ -36,8 +42,9 @@ let KnowledgeController = class KnowledgeController {
             count: topic._count.artifacts
         }));
     }
-    async getEntities() {
+    async getEntities(user) {
         const entities = await this.prisma.entity.findMany({
+            where: { userId: user.userId },
             include: {
                 _count: {
                     select: { artifacts: true }
@@ -56,10 +63,13 @@ let KnowledgeController = class KnowledgeController {
             count: entity._count.artifacts
         }));
     }
-    async getGraph() {
+    async getGraph(user) {
         const artifacts = await this.prisma.artifact.findMany({
-            include: { topics: true, entities: true, summary: true },
-            where: { status: 'completed' }
+            where: {
+                userId: user.userId,
+                status: 'completed'
+            },
+            include: { topics: true, entities: true, summary: true }
         });
         const nodes = [];
         const links = [];
@@ -111,23 +121,27 @@ let KnowledgeController = class KnowledgeController {
 exports.KnowledgeController = KnowledgeController;
 __decorate([
     (0, common_1.Get)('topics'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], KnowledgeController.prototype, "getTopics", null);
 __decorate([
     (0, common_1.Get)('entities'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], KnowledgeController.prototype, "getEntities", null);
 __decorate([
     (0, common_1.Get)('graph'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], KnowledgeController.prototype, "getGraph", null);
 exports.KnowledgeController = KnowledgeController = __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('knowledge'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], KnowledgeController);

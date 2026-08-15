@@ -16,13 +16,15 @@ exports.CaptureController = void 0;
 const common_1 = require("@nestjs/common");
 const capture_service_1 = require("./capture.service");
 const create_capture_dto_1 = require("./dto/create-capture.dto");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const current_user_decorator_1 = require("../auth/current-user.decorator");
 let CaptureController = class CaptureController {
     captureService;
     constructor(captureService) {
         this.captureService = captureService;
     }
-    create(createCaptureDto) {
-        return this.captureService.create(createCaptureDto);
+    create(createCaptureDto, user) {
+        return this.captureService.create(createCaptureDto, user.userId);
     }
 };
 exports.CaptureController = CaptureController;
@@ -30,11 +32,13 @@ __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.ACCEPTED),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_capture_dto_1.CreateCaptureDto]),
+    __metadata("design:paramtypes", [create_capture_dto_1.CreateCaptureDto, Object]),
     __metadata("design:returntype", void 0)
 ], CaptureController.prototype, "create", null);
 exports.CaptureController = CaptureController = __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('capture'),
     __metadata("design:paramtypes", [capture_service_1.CaptureService])
 ], CaptureController);
