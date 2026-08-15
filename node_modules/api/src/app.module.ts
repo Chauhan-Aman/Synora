@@ -7,6 +7,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from './prisma/prisma.module';
 import { InferenceModule } from './inference/inference.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
     PrismaModule,
     InferenceModule,
     KnowledgeModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
