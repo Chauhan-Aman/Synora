@@ -14,11 +14,19 @@ export declare class KnowledgeController {
         count: number;
     }[]>;
     getGraph(): Promise<{
-        nodes: {
+        nodes: ({
             id: string;
             name: string;
             group: string;
-        }[];
+            details: string | undefined;
+            sourceUrl: string | null;
+        } | {
+            id: string;
+            name: string;
+            group: string;
+            details?: undefined;
+            sourceUrl?: undefined;
+        })[];
         links: {
             source: string;
             target: string;

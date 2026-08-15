@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 type InputType = 'URL' | 'TEXT';
@@ -25,6 +25,23 @@ function App() {
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('GRAPH');
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+
+  // Resize logic for Graph
+  const graphContainerRef = useRef<HTMLDivElement>(null);
+  const [graphDimensions, setGraphDimensions] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    if (!graphContainerRef.current) return;
+    const resizeObserver = new ResizeObserver(entries => {
+      setGraphDimensions({
+        width: entries[0].contentRect.width,
+        height: entries[0].contentRect.height
+      });
+    });
+    resizeObserver.observe(graphContainerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [knowledgeView, activeTab]);
 
   // Chat State
   const [chatQuery, setChatQuery] = useState('');
@@ -153,6 +170,12 @@ function App() {
     if (node.group === 'artifact') ctx.strokeStyle = '#10b981'; // emerald
     else if (node.group === 'topic') ctx.strokeStyle = '#8b5cf6'; // violet
     else ctx.strokeStyle = '#3b82f6'; // blue
+    
+    // Highlight selected node
+    if (selectedNode && selectedNode.id === node.id) {
+      ctx.lineWidth = 3 / globalScale;
+      ctx.strokeStyle = '#f59e0b'; // amber
+    }
     ctx.stroke();
 
     // Draw text
@@ -236,7 +259,7 @@ function App() {
 
           {/* KNOWLEDGE TAB */}
           {activeTab === 'KNOWLEDGE' && (
-            <div className="w-full glass-panel p-6 md:p-8 flex flex-col h-full">
+            <div className="w-full glass-panel p-6 md:p-8 flex flex-col h-full relative">
               
               <div className="flex justify-between items-center mb-6 shrink-0 border-b border-synora-border pb-4">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -259,7 +282,7 @@ function App() {
                   <p>Loading Knowledge Graph...</p>
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden">
+                <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden" ref={graphContainerRef}>
                   {knowledgeView === 'LIST' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full overflow-y-auto pr-2">
                       <div>
@@ -302,35 +325,91 @@ function App() {
                     </div>
                   ) : (
                     <div className="w-full h-full bg-synora-bg/50 border border-synora-border rounded-xl absolute inset-0">
-                      <ForceGraph2D
-                        graphData={graphData}
-                        width={900}
-                        height={600}
-                        nodeRelSize={6}
-                        dagMode="lr"
-                        dagLevelDistance={200}
-                        linkDirectionalArrowLength={4}
-                        linkDirectionalArrowRelPos={1}
-                        nodeCanvasObject={renderNode}
-                        nodePointerAreaPaint={(node, color, ctx) => {
-                          ctx.fillStyle = color;
-                          const bckgDimensions = [ctx.measureText(node.name).width + 20, 20];
-                          ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1]);
-                        }}
-                        linkColor={() => 'rgba(148, 163, 184, 0.2)'}
-                        linkWidth={1.5}
-                        d3VelocityDecay={0.3}
-                        cooldownTicks={100}
-                        onNodeClick={(node) => {
-                          // Could implement selection or opening of details here
-                          console.log('Clicked node', node);
-                        }}
-                      />
-                      <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-                         <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-xs text-synora-text-secondary font-medium">Artifacts</span></div>
+                      {graphDimensions.width > 0 && (
+                        <ForceGraph2D
+                          graphData={graphData}
+                          width={graphDimensions.width}
+                          height={graphDimensions.height}
+                          nodeRelSize={6}
+                          dagMode="lr"
+                          dagLevelDistance={200}
+                          linkDirectionalArrowLength={4}
+                          linkDirectionalArrowRelPos={1}
+                          nodeCanvasObject={renderNode}
+                          nodePointerAreaPaint={(node, color, ctx) => {
+                            ctx.fillStyle = color;
+                            const bckgDimensions = [ctx.measureText(node.name).width + 20, 20];
+                            ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1]);
+                          }}
+                          linkColor={() => 'rgba(148, 163, 184, 0.3)'}
+                          linkWidth={1.5}
+                          d3VelocityDecay={0.3}
+                          cooldownTicks={100}
+                          onNodeClick={(node) => {
+                            setSelectedNode(node);
+                          }}
+                          onNodeDragEnd={(node) => {
+                            node.fx = node.x;
+                            node.fy = node.y;
+                          }}
+                        />
+                      )}
+                      
+                      {/* Legend */}
+                      <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none bg-synora-surface/80 backdrop-blur px-3 py-2 rounded-lg border border-synora-border">
+                         <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-xs text-synora-text-secondary font-medium">Documents</span></div>
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-violet-500"></div><span className="text-xs text-synora-text-secondary font-medium">Topics</span></div>
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-xs text-synora-text-secondary font-medium">Entities</span></div>
                       </div>
+
+                      {/* Learning Module Sidebar */}
+                      {selectedNode && (
+                        <div className="absolute top-0 right-0 h-full w-[350px] bg-synora-surface/95 backdrop-blur-xl border-l border-synora-border shadow-2xl p-6 flex flex-col animate-fade-in z-20">
+                          <div className="flex justify-between items-start mb-6">
+                            <div>
+                              <span className="text-xs uppercase text-synora-accent font-bold tracking-wider">{selectedNode.group}</span>
+                              <h4 className="text-xl font-bold mt-1 text-white leading-tight">{selectedNode.name}</h4>
+                            </div>
+                            <button onClick={() => setSelectedNode(null)} className="text-synora-text-secondary hover:text-white p-1 bg-synora-bg rounded-lg">
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                          
+                          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                            {selectedNode.details ? (
+                              <div className="mb-6">
+                                <h5 className="text-sm font-bold text-synora-text-secondary mb-3 flex items-center gap-2"><BrainCircuit className="w-4 h-4"/> AI Summary</h5>
+                                <div className="bg-synora-bg p-4 rounded-xl text-sm leading-relaxed border border-synora-border/50 text-gray-300 shadow-inner">
+                                  {selectedNode.details}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-synora-text-secondary mb-6 italic">No AI summary available for this node.</p>
+                            )}
+                            
+                            {selectedNode.sourceUrl && (
+                              <div className="mb-6">
+                                <h5 className="text-sm font-bold text-synora-text-secondary mb-2 flex items-center gap-2"><Link className="w-4 h-4"/> Source Link</h5>
+                                <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-synora-accent hover:underline break-all block bg-synora-accent/10 p-3 rounded-lg border border-synora-accent/20">
+                                  {selectedNode.sourceUrl}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="pt-4 border-t border-synora-border mt-auto shrink-0">
+                            <button 
+                              onClick={() => {
+                                setChatQuery(`Tell me everything you know about ${selectedNode.name}.`);
+                                setActiveTab('CHAT');
+                              }} 
+                              className="w-full btn-primary flex items-center justify-center gap-2 py-3 shadow-lg shadow-synora-accent/20"
+                            >
+                              <MessageSquare className="w-5 h-5" /> Chat with AI about this
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

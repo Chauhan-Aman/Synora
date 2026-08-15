@@ -54,7 +54,7 @@ export class KnowledgeController {
   @Get('graph')
   async getGraph() {
     const artifacts = await this.prisma.artifact.findMany({
-      include: { topics: true, entities: true },
+      include: { topics: true, entities: true, summary: true },
       where: { status: 'completed' }
     });
 
@@ -64,7 +64,12 @@ export class KnowledgeController {
 
     for (const artifact of artifacts) {
       let artifactName = 'Raw Text Snippet';
-      if (artifact.sourceUrl) {
+      
+      if (artifact.summary && artifact.summary.text) {
+        artifactName = artifact.summary.text.length > 35 
+          ? artifact.summary.text.substring(0, 35) + '...' 
+          : artifact.summary.text;
+      } else if (artifact.sourceUrl) {
         try {
           const url = new URL(artifact.sourceUrl);
           artifactName = url.hostname;
@@ -74,7 +79,13 @@ export class KnowledgeController {
       }
 
       if (!addedNodes.has(artifact.id)) {
-        nodes.push({ id: artifact.id, name: artifactName, group: 'artifact' });
+        nodes.push({ 
+          id: artifact.id, 
+          name: artifactName, 
+          group: 'artifact',
+          details: artifact.summary?.text,
+          sourceUrl: artifact.sourceUrl
+        });
         addedNodes.add(artifact.id);
       }
 
