@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Synora Clipper</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+      <div class="header">
+        <svg class="icon text-accent" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        <h2>Synora</h2>
+      </div>
+      <p class="subtitle">Log in to your local node</p>
+      
+      <div id="auth-error" class="error hidden"></div>
+      
+      <form id="login-form">
+        <div class="input-group">
+          <label>Email</label>
+          <input type="email" id="email" required placeholder="you@example.com">
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="password" required placeholder="••••••••">
+        </div>
+        <button type="submit" id="login-btn" class="btn-primary">Connect</button>
+      </form>
+    </div>
+
+    <!-- Capture Screen -->
+    <div id="capture-screen" class="screen hidden">
+      <div class="header">
+        <svg class="icon text-accent" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        <h2>Ready to Capture</h2>
+      </div>
+      
+      <div class="url-preview">
+        <p id="current-title" class="title">Loading...</p>
+        <p id="current-url" class="url">...</p>
+      </div>
+
+      <div id="capture-status" class="status hidden"></div>
+
+      <button id="capture-btn" class="btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Save to Knowledge Graph
+      </button>
+
+      <button id="logout-btn" class="btn-ghost">Log Out</button>
+    </div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
