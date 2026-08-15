@@ -13,6 +13,7 @@ const app_service_1 = require("./app.service");
 const capture_module_1 = require("./capture/capture.module");
 const bullmq_1 = require("@nestjs/bullmq");
 const prisma_module_1 = require("./prisma/prisma.module");
+const inference_module_1 = require("./inference/inference.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -27,6 +28,7 @@ exports.AppModule = AppModule = __decorate([
             }),
             capture_module_1.CaptureModule,
             prisma_module_1.PrismaModule,
+            inference_module_1.InferenceModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
