@@ -9,6 +9,7 @@ import { InferenceModule } from './inference/inference.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
+import { LearnModule } from './learn/learn.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AuthModule } from './auth/auth.module';
     KnowledgeModule,
     ChatModule,
     AuthModule,
+    LearnModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -20,6 +20,7 @@ model User {
   entities     Entity[]
   summaries    Summary[]
   chunks       Chunk[]
+  flashcards   Flashcard[]
 }
 
 model Artifact {
@@ -36,6 +37,7 @@ model Artifact {
   topics    Topic[]
   entities  Entity[]
   chunks    Chunk[]
+  flashcards Flashcard[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -87,4 +89,25 @@ model Entity {
   artifacts Artifact[]
 
   @@unique([name, type, userId])
+}
+
+model Flashcard {
+  id             String   @id @default(uuid())
+  question       String
+  answer         String
+  
+  // SM-2 Spaced Repetition Fields
+  nextReviewDate DateTime @default(now())
+  interval       Int      @default(0)    // days
+  easeFactor     Float    @default(2.5)
+  repetitions    Int      @default(0)
+
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  artifactId     String
+  artifact       Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

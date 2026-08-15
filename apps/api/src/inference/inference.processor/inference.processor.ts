@@ -89,7 +89,7 @@ export class InferenceProcessor extends WorkerHost {
       
       const prompt = `
         You are a highly capable AI specialized in extracting structured knowledge graphs from text.
-        Extract the most important topics, named entities, and provide a short summary of the following text.
+        Extract the most important topics, named entities, a short summary, and 3 Question & Answer flashcards to test the user's knowledge on this text.
         
         TEXT TO ANALYZE:
         "${contentToProcess.substring(0, 4000)}"
@@ -100,6 +100,9 @@ export class InferenceProcessor extends WorkerHost {
           "topics": ["Topic 1", "Topic 2", "Topic 3"],
           "entities": [
             {"name": "Entity Name", "type": "PERSON | ORGANIZATION | TECHNOLOGY | LOCATION | CONCEPT"}
+          ],
+          "flashcards": [
+            {"question": "A specific question testing key knowledge?", "answer": "The concise answer."}
           ]
         }
       `;
@@ -162,6 +165,23 @@ export class InferenceProcessor extends WorkerHost {
             update: { artifacts: { connect: { id: artifactId } } },
             create: { name: entity.name, type: entity.type, userId: artifact.userId, artifacts: { connect: { id: artifactId } } },
           });
+        }
+      }
+
+      // Save Flashcards
+      if (Array.isArray(extractedData.flashcards)) {
+        this.logger.log(`Saving ${extractedData.flashcards.length} flashcards...`);
+        for (const card of extractedData.flashcards) {
+          if (card.question && card.answer) {
+            await this.prisma.flashcard.create({
+              data: {
+                question: card.question,
+                answer: card.answer,
+                userId: artifact.userId,
+                artifactId: artifactId,
+              }
+            });
+          }
         }
       }
 
