@@ -9,27 +9,26 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppController = void 0;
+exports.PrismaService = void 0;
+require("dotenv/config");
 const common_1 = require("@nestjs/common");
-const app_service_1 = require("./app.service");
-let AppController = class AppController {
-    appService;
-    constructor(appService) {
-        this.appService = appService;
+const client_1 = require("@prisma/client");
+const adapter_pg_1 = require("@prisma/adapter-pg");
+const pg_1 = require("pg");
+let PrismaService = class PrismaService extends client_1.PrismaClient {
+    constructor() {
+        const connectionString = process.env.DATABASE_URL;
+        const pool = new pg_1.Pool({ connectionString });
+        const adapter = new adapter_pg_1.PrismaPg(pool);
+        super({ adapter });
     }
-    getHello() {
-        return this.appService.getHello();
+    async onModuleInit() {
+        await this.$connect();
     }
 };
-exports.AppController = AppController;
-__decorate([
-    (0, common_1.Get)(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", String)
-], AppController.prototype, "getHello", null);
-exports.AppController = AppController = __decorate([
-    (0, common_1.Controller)(),
-    __metadata("design:paramtypes", [app_service_1.AppService])
-], AppController);
-//# sourceMappingURL=app.controller.js.map
+exports.PrismaService = PrismaService;
+exports.PrismaService = PrismaService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [])
+], PrismaService);
+//# sourceMappingURL=prisma.service.js.map
