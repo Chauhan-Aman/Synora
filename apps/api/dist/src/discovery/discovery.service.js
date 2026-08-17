@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const bullmq_1 = require("@nestjs/bullmq");
 const bullmq_2 = require("bullmq");
+const duck_duck_scrape_1 = require("duck-duck-scrape");
 let DiscoveryService = DiscoveryService_1 = class DiscoveryService {
     prisma;
     captureQueue;
@@ -100,12 +101,23 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
             const parsed = JSON.parse(data.response);
             const createdRecs = [];
             for (const rec of parsed.recommendations) {
+                let imageUrl = null;
+                try {
+                    const imageRes = await (0, duck_duck_scrape_1.searchImages)(rec.title);
+                    if (imageRes.results && imageRes.results.length > 0) {
+                        imageUrl = imageRes.results[0].image;
+                    }
+                }
+                catch (imgErr) {
+                    this.logger.warn(`Failed to fetch image for ${rec.title}: ${imgErr.message}`);
+                }
                 const created = await this.prisma.recommendation.create({
                     data: {
                         title: rec.title,
                         description: rec.description,
                         reasoning: rec.reasoning,
                         type: rec.type,
+                        imageUrl,
                         userId,
                     },
                 });
@@ -125,33 +137,25 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
         if (!recommendation) {
             throw new Error('Recommendation not found');
         }
-        const prompt = `
-You are a master essayist and researcher.
-Write a fascinating, comprehensive 500-word article about the following concept:
-Title: ${recommendation.title}
-Context: ${recommendation.description}
-
-Write in a compelling, structured format suitable for saving into a personal knowledge graph.
-`;
-        const generateResponse = await fetch(this.OLLAMA_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: this.OLLAMA_MODEL,
-                prompt,
-                stream: false,
-            }),
-        });
-        const data = await generateResponse.json();
-        const articleContent = data.response.trim();
+        let targetUrl = `synora://discovery/${recommendation.id}`;
+        let content = '';
+        try {
+            const searchRes = await (0, duck_duck_scrape_1.search)(recommendation.title);
+            if (searchRes.results && searchRes.results.length > 0) {
+                targetUrl = searchRes.results[0].url;
+            }
+        }
+        catch (e) {
+            this.logger.warn(`Search failed for ${recommendation.title}`);
+        }
         const artifact = await this.prisma.artifact.create({
             data: {
                 userId,
                 title: recommendation.title,
-                type: 'TEXT',
+                type: targetUrl.startsWith('http') ? 'URL' : 'TEXT',
                 status: 'pending',
-                sourceUrl: `synora://discovery/${recommendation.id}`,
-                content: articleContent,
+                sourceUrl: targetUrl,
+                content: targetUrl.startsWith('http') ? undefined : recommendation.description,
             },
         });
         await this.prisma.recommendation.update({
@@ -160,7 +164,6 @@ Write in a compelling, structured format suitable for saving into a personal kno
         });
         await this.captureQueue.add('process-artifact', {
             artifactId: artifact.id,
-            type: 'TEXT',
         });
         return artifact;
     }

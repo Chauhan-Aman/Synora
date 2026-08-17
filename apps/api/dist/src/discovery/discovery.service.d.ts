@@ -16,6 +16,7 @@ export declare class DiscoveryService {
         userId: string;
         description: string;
         reasoning: string;
+        imageUrl: string | null;
     }[]>;
     private generateDailyFeed;
     exploreRecommendation(userId: string, id: string): Promise<{

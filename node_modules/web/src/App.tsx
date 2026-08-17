@@ -1007,38 +1007,51 @@ function App() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto pb-8 pr-2 flex-1">
                   {recommendations.map((rec) => (
-                    <div key={rec.id} className="glass-panel p-6 rounded-2xl flex flex-col hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group relative">
+                    <div key={rec.id} className="glass-panel rounded-2xl flex flex-col hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group relative overflow-hidden">
+                      {/* Background Image if available */}
+                      {rec.imageUrl && (
+                        <>
+                          <div 
+                            className="absolute inset-0 bg-cover bg-center opacity-30 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-105"
+                            style={{ backgroundImage: `url(${rec.imageUrl})` }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-synora-bg via-synora-bg/80 to-transparent" />
+                        </>
+                      )}
+
                       {/* Glow effect contained without clipping the main card content */}
                       <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/5 rounded-full blur-3xl group-hover:bg-synora-accent/20 transition-all duration-700"></div>
+                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/10 rounded-full blur-3xl group-hover:bg-synora-accent/30 transition-all duration-700"></div>
                       </div>
                       
-                      <div className="flex items-center gap-2 mb-4 shrink-0 relative z-10">
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full border ${rec.type === 'SYNTHESIS' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
-                          {rec.type === 'SYNTHESIS' ? <><Network className="w-3 h-3 inline mr-1"/> Synthesis</> : <><Box className="w-3 h-3 inline mr-1"/> Concept</>}
-                        </span>
-                      </div>
-                      
-                      <h3 className="text-2xl font-bold text-white mb-3 tracking-tight shrink-0 relative z-10">{rec.title}</h3>
-                      <p className="text-synora-text-secondary mb-6 text-lg leading-relaxed shrink-0 relative z-10">{rec.description}</p>
-                      
-                      <div className="mt-auto shrink-0 relative z-10">
-                        <div className="bg-synora-surface/50 rounded-xl p-4 mb-6 border border-synora-border/50 text-sm text-synora-text-secondary flex items-start gap-3">
-                          <BrainCircuit className="w-4 h-4 text-synora-accent shrink-0 mt-0.5" />
-                          <p>{rec.reasoning}</p>
+                      <div className="p-6 relative z-10 flex flex-col h-full">
+                        <div className="flex items-center gap-2 mb-4 shrink-0">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-lg backdrop-blur-md ${rec.type === 'SYNTHESIS' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>
+                            {rec.type === 'SYNTHESIS' ? <><Network className="w-3 h-3 inline mr-1"/> Synthesis</> : <><Box className="w-3 h-3 inline mr-1"/> Concept</>}
+                          </span>
                         </div>
                         
-                        <button 
-                          onClick={() => handleExplore(rec.id)}
-                          disabled={exploringId === rec.id}
-                          className="w-full py-3 bg-synora-accent hover:bg-synora-accent-hover text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                          {exploringId === rec.id ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Generating Article...</>
-                          ) : (
-                            <><Sparkles className="w-4 h-4" /> Explore this {rec.type.toLowerCase()}</>
-                          )}
-                        </button>
+                        <h3 className="text-2xl font-bold text-white mb-3 tracking-tight shrink-0 drop-shadow-md">{rec.title}</h3>
+                        <p className="text-synora-text-secondary group-hover:text-white/90 transition-colors mb-6 text-lg leading-relaxed shrink-0 drop-shadow-md">{rec.description}</p>
+                        
+                        <div className="mt-auto shrink-0">
+                          <div className="bg-synora-surface/60 backdrop-blur-xl rounded-xl p-4 mb-6 border border-synora-border/50 text-sm text-synora-text-secondary flex items-start gap-3 shadow-inner">
+                            <BrainCircuit className="w-4 h-4 text-synora-accent shrink-0 mt-0.5 drop-shadow-md" />
+                            <p className="drop-shadow-sm">{rec.reasoning}</p>
+                          </div>
+                          
+                          <button 
+                            onClick={() => handleExplore(rec.id)}
+                            disabled={exploringId === rec.id}
+                            className="w-full py-3 bg-synora-accent/90 hover:bg-synora-accent backdrop-blur-md text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-synora-accent/50 flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            {exploringId === rec.id ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" /> Fetching Article...</>
+                            ) : (
+                              <><Sparkles className="w-4 h-4" /> Read Article</>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

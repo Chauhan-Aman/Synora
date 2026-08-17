@@ -121,6 +121,7 @@ model Recommendation {
   description String
   reasoning   String
   type        String   // "CONCEPT" or "SYNTHESIS"
+  imageUrl    String?
   status      String   @default("UNREAD") // "UNREAD", "SAVED", "DISMISSED"
   
   userId      String

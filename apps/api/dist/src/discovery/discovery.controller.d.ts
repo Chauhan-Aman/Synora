@@ -11,6 +11,7 @@ export declare class DiscoveryController {
         userId: string;
         description: string;
         reasoning: string;
+        imageUrl: string | null;
     }[]>;
     exploreRecommendation(id: string, user: any): Promise<{
         id: string;
