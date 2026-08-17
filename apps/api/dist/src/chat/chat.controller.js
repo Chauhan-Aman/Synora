@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -18,11 +51,16 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/current-user.decorator");
+const duck_duck_scrape_1 = require("duck-duck-scrape");
+const cheerio = __importStar(require("cheerio"));
+const capture_service_1 = require("../capture/capture.service");
 let ChatController = ChatController_1 = class ChatController {
     prisma;
+    captureService;
     logger = new common_1.Logger(ChatController_1.name);
-    constructor(prisma) {
+    constructor(prisma, captureService) {
         this.prisma = prisma;
+        this.captureService = captureService;
     }
     async chat(query, history, user) {
         if (!query) {
@@ -100,14 +138,72 @@ Rewritten Query:`;
         ORDER BY rrf_score DESC
         LIMIT 5;
       `;
-            let contextText = "No personal knowledge captured yet.";
+            let contextText = "";
             let sources = [];
             if (relevantChunks.length > 0) {
                 contextText = relevantChunks
-                    .map((c, i) => `[Source ${i + 1}] (${c.sourceUrl || 'Text Snippet'}):\n${c.content}`)
+                    .map((c, i) => `[Local Source ${i + 1}] (${c.sourceUrl || 'Text Snippet'}):\n${c.content}`)
                     .join('\n\n');
-                const allSources = relevantChunks.map(c => c.sourceUrl || 'Text Snippet');
+                const allSources = relevantChunks.map(c => c.sourceUrl || 'Local Text Snippet');
                 sources = [...new Set(allSources)];
+            }
+            this.logger.log("Agent evaluating if local context is sufficient...");
+            const evalPrompt = `Does the following context contain sufficient information to answer the user's question?
+Context:
+${contextText || "No context provided."}
+
+Question: ${searchQuery}
+
+Reply with ONLY the word "YES" or "NO".`;
+            let needsWebSearch = true;
+            if (contextText) {
+                try {
+                    const evalRes = await fetch('http://localhost:11434/api/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: 'llama3.2', prompt: evalPrompt, stream: false }),
+                    });
+                    const d = await evalRes.json();
+                    const responseWord = d.response.trim().toUpperCase();
+                    needsWebSearch = responseWord.includes('NO');
+                    this.logger.log(`Agent evaluation result: ${responseWord} -> Needs Web Search: ${needsWebSearch}`);
+                }
+                catch (e) {
+                    this.logger.error("Failed to evaluate context", e);
+                }
+            }
+            if (needsWebSearch) {
+                this.logger.log(`Executing Autonomous Web Search for: "${searchQuery}"`);
+                try {
+                    const searchResults = await (0, duck_duck_scrape_1.search)(searchQuery);
+                    const topResults = searchResults.results.slice(0, 2);
+                    for (let i = 0; i < topResults.length; i++) {
+                        const result = topResults[i];
+                        this.logger.log(`Scraping web result: ${result.url}`);
+                        try {
+                            const pageRes = await fetch(result.url, {
+                                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+                            });
+                            const html = await pageRes.text();
+                            const $ = cheerio.load(html);
+                            $('script, style, nav, footer, header, iframe, noscript').remove();
+                            const text = $('body').text().replace(/\s+/g, ' ').trim();
+                            const snippet = text.substring(0, 2000);
+                            contextText += `\n\n[Web Search Result ${i + 1}] (${result.url}):\n${snippet}`;
+                            sources.push(`WEB: ${result.title || result.url}`);
+                            this.logger.log(`Pushing ${result.url} to Capture Queue for permanent indexing...`);
+                            this.captureService.create({ type: 'URL', sourceUrl: result.url }, user.userId).catch((e) => {
+                                this.logger.error(`Failed to push web result to capture queue: ${e.message}`);
+                            });
+                        }
+                        catch (scrapeErr) {
+                            this.logger.error(`Failed to scrape ${result.url}`);
+                        }
+                    }
+                }
+                catch (searchErr) {
+                    this.logger.error("DuckDuckGo search failed", searchErr);
+                }
             }
             let historyContext = "";
             if (history && history.length > 0) {
@@ -115,20 +211,20 @@ Rewritten Query:`;
             }
             const prompt = `
 You are Synora, an intelligent and friendly personal assistant. 
-You have access to the user's personal knowledge graph. 
+You have access to the user's personal knowledge graph, and you can also autonomously search the web if needed.
 
 If the user is just saying hello or asking a general conversational question, answer in a friendly, conversational manner.
 If the user is asking a question that requires specific knowledge, answer it using ONLY the provided context below.
-If the context does not contain the answer, politely state that you cannot find the answer in their knowledge graph.
+If the context does not contain the answer, politely state that you cannot find the answer.
 
 ${historyContext}
 CONTEXT:
-${contextText}
+${contextText || "No context available."}
 
 QUESTION:
 ${query}
 `;
-            this.logger.log(`Asking Ollama (llama3.2) with ${relevantChunks.length} sources...`);
+            this.logger.log(`Generating final answer using Llama 3.2...`);
             const generateResponse = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -166,6 +262,7 @@ __decorate([
 exports.ChatController = ChatController = ChatController_1 = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('chat'),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        capture_service_1.CaptureService])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map

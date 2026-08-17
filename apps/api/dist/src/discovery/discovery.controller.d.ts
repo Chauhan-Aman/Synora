@@ -5,22 +5,22 @@ export declare class DiscoveryController {
     getFeed(user: any): Promise<{
         id: string;
         title: string;
-        description: string;
-        reasoning: string;
         type: string;
         status: string;
-        userId: string;
         createdAt: Date;
+        userId: string;
+        description: string;
+        reasoning: string;
     }[]>;
     exploreRecommendation(id: string, user: any): Promise<{
         id: string;
         title: string | null;
-        type: string;
-        status: string;
-        userId: string;
-        createdAt: Date;
         sourceUrl: string | null;
         content: string | null;
+        type: string;
+        status: string;
+        createdAt: Date;
         updatedAt: Date;
+        userId: string;
     }>;
 }
