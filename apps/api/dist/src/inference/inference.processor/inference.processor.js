@@ -50,7 +50,6 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const cheerio = __importStar(require("cheerio"));
 const fs = __importStar(require("fs"));
 const Tesseract = __importStar(require("tesseract.js"));
-const pdfParse = __importStar(require("pdf-parse"));
 let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends bullmq_1.WorkerHost {
     prisma;
     logger = new common_1.Logger(InferenceProcessor_1.name);
@@ -99,8 +98,8 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
             else if (artifact.type === 'PDF' && artifact.content) {
                 this.logger.log(`Parsing PDF file: ${artifact.content}`);
                 const dataBuffer = fs.readFileSync(artifact.content);
-                const pdfParseFunc = pdfParse.default || pdfParse;
-                const data = await pdfParseFunc(dataBuffer);
+                const pdfParseLib = require('pdf-parse');
+                const data = await pdfParseLib(dataBuffer);
                 contentToProcess = data.text.replace(/\s+/g, ' ').trim();
                 await this.prisma.artifact.update({
                     where: { id: artifactId },

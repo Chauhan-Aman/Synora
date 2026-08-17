@@ -18,6 +18,7 @@ const knowledge_module_1 = require("./knowledge/knowledge.module");
 const chat_module_1 = require("./chat/chat.module");
 const auth_module_1 = require("./auth/auth.module");
 const learn_module_1 = require("./learn/learn.module");
+const discovery_module_1 = require("./discovery/discovery.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -37,6 +38,7 @@ exports.AppModule = AppModule = __decorate([
             chat_module_1.ChatModule,
             auth_module_1.AuthModule,
             learn_module_1.LearnModule,
+            discovery_module_1.DiscoveryModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

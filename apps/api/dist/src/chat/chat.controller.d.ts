@@ -3,7 +3,7 @@ export declare class ChatController {
     private readonly prisma;
     private readonly logger;
     constructor(prisma: PrismaService);
-    chat(query: string, user: any): Promise<{
+    chat(query: string, history: any[], user: any): Promise<{
         response: any;
         sources: string[];
     }>;

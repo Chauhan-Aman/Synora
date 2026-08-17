@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 type InputType = 'URL' | 'TEXT' | 'FILE';
-type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT';
+type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER';
 
 interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
@@ -68,9 +68,15 @@ function App() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoadingLearn, setIsLoadingLearn] = useState(false);
 
+  // Discover State
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [isLoadingDiscover, setIsLoadingDiscover] = useState(false);
+  const [exploringId, setExploringId] = useState<string | null>(null);
+
   useEffect(() => {
     if (token && activeTab === 'KNOWLEDGE') fetchKnowledge();
     if (token && activeTab === 'LEARN') fetchLearn();
+    if (token && activeTab === 'DISCOVER') fetchDiscover();
   }, [activeTab, token]);
 
   useEffect(() => {
@@ -155,18 +161,45 @@ function App() {
     try {
       const res = await fetchWithAuth('http://localhost:3000/learn/due');
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to fetch');
+      if (!res.ok) throw new Error(data.message || 'Failed to fetch flashcards');
       setFlashcards(data);
       setCurrentCardIndex(0);
       setIsFlipped(false);
-    } catch (error) {
-      console.error("Failed to fetch flashcards", error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsLoadingLearn(false);
     }
   };
 
-  const handleReview = async (score: number) => {
+  const fetchDiscover = async () => {
+    setIsLoadingDiscover(true);
+    try {
+      const res = await fetchWithAuth('http://localhost:3000/discovery/feed');
+      if (!res.ok) throw new Error('Failed to fetch discovery feed');
+      setRecommendations(await res.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingDiscover(false);
+    }
+  };
+
+  const handleExplore = async (id: string) => {
+    setExploringId(id);
+    try {
+      const res = await fetchWithAuth(`http://localhost:3000/discovery/${id}/explore`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to explore');
+      setRecommendations(prev => prev.filter(r => r.id !== id));
+      alert("Artifact generated and sent for processing! Check your Knowledge Graph soon.");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setExploringId(null);
+    }
+  };
+
+  const handleScoreCard = async (score: number) => {
     const card = flashcards[currentCardIndex];
     if (!card) return;
 
@@ -181,7 +214,7 @@ function App() {
         setCurrentCardIndex(prev => prev + 1);
         setIsFlipped(false);
       } else {
-        fetchLearn(); // fetch again to see if there are more or show "caught up"
+        fetchLearn();
       }
     } catch (err) {
       console.error(err);
@@ -245,7 +278,7 @@ function App() {
       const response = await fetchWithAuth('http://localhost:3000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage }),
+        body: JSON.stringify({ query: userMessage, history: chatHistory }),
       });
 
       if (!response.ok) throw new Error('Failed to fetch chat response');
@@ -397,7 +430,7 @@ function App() {
           <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Synora Engine</h1>
           
           <div className="flex bg-synora-surface/50 backdrop-blur-md p-1.5 rounded-2xl border border-synora-border shadow-xl w-full mx-auto max-w-2xl">
-            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT'] as Tab[]).map((tab) => (
+            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -411,6 +444,7 @@ function App() {
                 {tab === 'KNOWLEDGE' && <BrainCircuit className="w-4 h-4" />}
                 {tab === 'LEARN' && <GraduationCap className="w-4 h-4" />}
                 {tab === 'CHAT' && <MessageSquare className="w-4 h-4" />}
+                {tab === 'DISCOVER' && <Compass className="w-4 h-4" />}
                 {tab.charAt(0) + tab.slice(1).toLowerCase()}
               </button>
             ))}
@@ -748,6 +782,78 @@ function App() {
                   </button>
                 </form>
               </div>
+            </div>
+          )}
+
+          {/* DISCOVER TAB */}
+          {activeTab === 'DISCOVER' && (
+            <div className="w-full max-w-5xl mx-auto mt-8 flex flex-col h-[calc(100vh-16rem)] min-h-[500px]">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-3xl font-bold flex items-center gap-3 text-white tracking-tight">
+                    <Compass className="w-8 h-8 text-synora-accent" /> Discover
+                  </h2>
+                  <p className="text-synora-text-secondary mt-2 text-lg">AI-generated concepts tailored to your knowledge graph.</p>
+                </div>
+                <button 
+                  onClick={fetchDiscover} 
+                  disabled={isLoadingDiscover}
+                  className="glass-button px-4 py-2 flex items-center gap-2"
+                >
+                  <Sparkles className={`w-4 h-4 text-synora-accent ${isLoadingDiscover ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+
+              {isLoadingDiscover && recommendations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl">
+                  <Sparkles className="w-12 h-12 animate-pulse text-synora-accent mb-4" />
+                  <p className="text-xl">Synthesizing your knowledge...</p>
+                  <p className="text-sm mt-2 opacity-70">Llama 3.2 is generating unique concepts based on your graph.</p>
+                </div>
+              ) : recommendations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl">
+                  <Compass className="w-12 h-12 text-synora-border mb-4" />
+                  <p className="text-xl">No recommendations yet.</p>
+                  <p className="text-sm mt-2 opacity-70">Capture more knowledge to help the AI understand your taste!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 overflow-y-auto pb-8 pr-2">
+                  {recommendations.map((rec) => (
+                    <div key={rec.id} className="glass-panel p-6 rounded-2xl flex flex-col h-full hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group relative overflow-hidden">
+                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/5 rounded-full blur-3xl group-hover:bg-synora-accent/20 transition-all duration-700"></div>
+                      
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full border ${rec.type === 'SYNTHESIS' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                          {rec.type === 'SYNTHESIS' ? <><Network className="w-3 h-3 inline mr-1"/> Synthesis</> : <><Box className="w-3 h-3 inline mr-1"/> Concept</>}
+                        </span>
+                      </div>
+                      
+                      <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">{rec.title}</h3>
+                      <p className="text-synora-text-secondary mb-6 text-lg leading-relaxed flex-1">{rec.description}</p>
+                      
+                      <div className="mt-auto">
+                        <div className="bg-synora-surface/50 rounded-xl p-4 mb-6 border border-synora-border/50 text-sm text-synora-text-secondary flex items-start gap-3">
+                          <BrainCircuit className="w-4 h-4 text-synora-accent shrink-0 mt-0.5" />
+                          <p>{rec.reasoning}</p>
+                        </div>
+                        
+                        <button 
+                          onClick={() => handleExplore(rec.id)}
+                          disabled={exploringId === rec.id}
+                          className="w-full py-3 bg-synora-accent hover:bg-synora-accent-hover text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {exploringId === rec.id ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Generating Article...</>
+                          ) : (
+                            <><Sparkles className="w-4 h-4" /> Explore this {rec.type.toLowerCase()}</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           

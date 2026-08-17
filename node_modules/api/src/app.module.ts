@@ -10,6 +10,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
 import { LearnModule } from './learn/learn.module';
+import { DiscoveryModule } from './discovery/discovery.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { LearnModule } from './learn/learn.module';
     ChatModule,
     AuthModule,
     LearnModule,
+    DiscoveryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

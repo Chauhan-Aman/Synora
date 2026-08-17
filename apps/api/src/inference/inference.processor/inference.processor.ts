@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
 import * as Tesseract from 'tesseract.js';
-import * as pdfParse from 'pdf-parse';
+
 
 @Processor('capture-processing')
 export class InferenceProcessor extends WorkerHost {
@@ -51,11 +51,11 @@ export class InferenceProcessor extends WorkerHost {
         this.logger.log(`Fetching content from URL: ${artifact.sourceUrl}`);
         const response = await fetch(artifact.sourceUrl);
         const html = await response.text();
-        
+
         const $ = cheerio.load(html);
         $('script, style, nav, footer, iframe').remove();
         contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
-        
+
         // Save the extracted text back to the artifact
         await this.prisma.artifact.update({
           where: { id: artifactId },
@@ -64,10 +64,10 @@ export class InferenceProcessor extends WorkerHost {
       } else if (artifact.type === 'PDF' && artifact.content) {
         this.logger.log(`Parsing PDF file: ${artifact.content}`);
         const dataBuffer = fs.readFileSync(artifact.content);
-        const pdfParseFunc = (pdfParse as any).default || pdfParse;
-        const data = await pdfParseFunc(dataBuffer);
+        const pdfParseLib = require('pdf-parse');
+        const data = await pdfParseLib(dataBuffer);
         contentToProcess = data.text.replace(/\s+/g, ' ').trim();
-        
+
         await this.prisma.artifact.update({
           where: { id: artifactId },
           data: { content: contentToProcess.substring(0, 5000) },
@@ -76,7 +76,7 @@ export class InferenceProcessor extends WorkerHost {
         this.logger.log(`Running OCR on Image file: ${artifact.content}`);
         const { data: { text } } = await Tesseract.recognize(artifact.content, 'eng');
         contentToProcess = text.replace(/\s+/g, ' ').trim();
-        
+
         await this.prisma.artifact.update({
           where: { id: artifactId },
           data: { content: contentToProcess.substring(0, 5000) },
@@ -84,7 +84,7 @@ export class InferenceProcessor extends WorkerHost {
       }
 
       this.logger.log(`Sending to Ollama (${this.OLLAMA_MODEL}) for extraction...`);
-      
+
       const prompt = `
         You are a highly capable AI specialized in extracting structured knowledge graphs from text.
         Extract the most important topics, named entities, a short summary, and 3 Question & Answer flashcards to test the user's knowledge on this text.
@@ -132,7 +132,7 @@ export class InferenceProcessor extends WorkerHost {
       }
 
       this.logger.log('Ollama extraction successful! Saving metadata to the database...');
-      
+
       // Save Summary
       if (extractedData.summary) {
         await this.prisma.summary.create({
@@ -185,7 +185,7 @@ export class InferenceProcessor extends WorkerHost {
 
       this.logger.log('Generating vector embeddings for chunks...');
       const chunks = this.chunkText(contentToProcess);
-      
+
       for (const chunkText of chunks) {
         if (!chunkText.trim()) continue;
 
@@ -203,7 +203,7 @@ export class InferenceProcessor extends WorkerHost {
             const embedData = await embeddingResponse.json();
             const vector = embedData.embedding;
             const vectorString = `[${vector.join(',')}]`;
-            
+
             const newChunk = await this.prisma.chunk.create({
               data: {
                 text: chunkText,

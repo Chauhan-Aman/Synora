@@ -11,20 +11,53 @@ export class ChatController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
-  async chat(@Body('query') query: string, @CurrentUser() user: any) {
+  async chat(
+    @Body('query') query: string, 
+    @Body('history') history: any[], 
+    @CurrentUser() user: any
+  ) {
     if (!query) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
 
     try {
-      this.logger.log(`Embedding user query: "${query}"`);
+      let searchQuery = query;
+
+      if (history && history.length > 0) {
+        const historyText = history.slice(-4).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+        const rewritePrompt = `Given the following conversation history, rewrite the user's latest query to be a standalone search query. Replace pronouns (he, she, it, they) with the actual entities they refer to from the history. DO NOT answer the question, ONLY return the rewritten query text.
+        
+History:
+${historyText}
+
+Latest Query: ${query}
+
+Rewritten Query:`;
+
+        try {
+          const rewriteRes = await fetch('http://localhost:11434/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'llama3.2', prompt: rewritePrompt, stream: false }),
+          });
+          if (rewriteRes.ok) {
+            const d = await rewriteRes.json();
+            searchQuery = d.response.trim();
+            this.logger.log(`Rewrote query for search: "${searchQuery}"`);
+          }
+        } catch (e) {
+          this.logger.error("Failed to rewrite query", e);
+        }
+      }
+
+      this.logger.log(`Embedding user query: "${searchQuery}"`);
       // 1. Embed the query using Nomic Embed
       const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'nomic-embed-text',
-          prompt: query,
+          prompt: searchQuery,
         }),
       });
 
@@ -66,6 +99,11 @@ export class ChatController {
         sources = [...new Set(allSources)];
       }
 
+      let historyContext = "";
+      if (history && history.length > 0) {
+        historyContext = "CONVERSATION HISTORY:\n" + history.slice(-5).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n') + "\n\n";
+      }
+
       const prompt = `
 You are Synora, an intelligent and friendly personal assistant. 
 You have access to the user's personal knowledge graph. 
@@ -74,6 +112,7 @@ If the user is just saying hello or asking a general conversational question, an
 If the user is asking a question that requires specific knowledge, answer it using ONLY the provided context below.
 If the context does not contain the answer, politely state that you cannot find the answer in their knowledge graph.
 
+${historyContext}
 CONTEXT:
 ${contextText}
 
