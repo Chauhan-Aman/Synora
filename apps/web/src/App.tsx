@@ -974,7 +974,7 @@ function App() {
 
           {/* DISCOVER TAB */}
           {activeTab === 'DISCOVER' && (
-            <div className="w-full max-w-5xl mx-auto mt-8 flex flex-col h-[calc(100vh-16rem)] min-h-[500px]">
+            <div className="w-full max-w-5xl mx-auto mt-8 flex flex-col min-h-[500px]">
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h2 className="text-3xl font-bold flex items-center gap-3 text-white tracking-tight">
@@ -993,19 +993,19 @@ function App() {
               </div>
 
               {isLoadingDiscover && recommendations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl">
+                <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl p-12">
                   <Sparkles className="w-12 h-12 animate-pulse text-synora-accent mb-4" />
                   <p className="text-xl">Synthesizing your knowledge...</p>
                   <p className="text-sm mt-2 opacity-70">Llama 3.2 is generating unique concepts based on your graph.</p>
                 </div>
               ) : recommendations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl">
+                <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl p-12">
                   <Compass className="w-12 h-12 text-synora-border mb-4" />
                   <p className="text-xl">No recommendations yet.</p>
                   <p className="text-sm mt-2 opacity-70">Capture more knowledge to help the AI understand your taste!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto pb-8 pr-2 flex-1">
+                <div className="grid grid-cols-1 lg:grid-cols-2 auto-rows-max gap-6 pb-8">
                   {recommendations.map((rec) => (
                     <div key={rec.id} className="glass-panel rounded-2xl grid hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group overflow-hidden">
                       {/* Background Image if available */}
