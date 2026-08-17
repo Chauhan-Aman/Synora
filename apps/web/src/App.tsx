@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
+import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 
 type InputType = 'URL' | 'TEXT' | 'FILE';
 type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER';
@@ -38,6 +39,51 @@ function App() {
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('LIST');
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
+
+  const [activeRadialCategory, setActiveRadialCategory] = useState<{ id: string, title: string, items: RadialMenuItem[] } | null>(null);
+  const [wikiSummary, setWikiSummary] = useState<string | null>(null);
+  const [isFetchingWiki, setIsFetchingWiki] = useState(false);
+
+  useEffect(() => {
+    setWikiSummary(null);
+  }, [selectedNode]);
+
+  const fetchWiki = async (topic: string) => {
+    setIsFetchingWiki(true);
+    try {
+      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`);
+      const data = await res.json();
+      if (data.extract) {
+        setWikiSummary(data.extract);
+      } else {
+        setWikiSummary("No article found for this concept on Wikipedia.");
+      }
+    } catch (e) {
+      setWikiSummary("Failed to fetch article.");
+    }
+    setIsFetchingWiki(false);
+  };
+
+  const radialCategories = useMemo(() => {
+    const cats: Record<string, RadialMenuItem[]> = {
+      'Documents': artifacts.map(a => ({ id: a.id, label: a.title || a.sourceUrl || 'Document', color: '#10b981', data: { ...a, isArtifact: true } })),
+      'Concepts': topics.map(t => ({ id: t.id, label: t.name, count: t.count, color: '#a855f7', data: { ...t, group: 'topics' } }))
+    };
+    
+    entities.forEach(e => {
+      const type = e.type || 'OTHER';
+      if (!cats[type]) cats[type] = [];
+      cats[type].push({ id: e.id, label: e.name, count: e.count, color: '#3b82f6', data: { ...e, group: 'entities' } });
+    });
+
+    return Object.entries(cats)
+      .filter(([_, items]) => items.length > 0)
+      .map(([title, items]) => ({
+        id: title,
+        title: title === 'Concepts' ? 'Concepts & Topics' : (title === 'Documents' ? 'Original Documents' : title.charAt(0) + title.slice(1).toLowerCase() + 's'),
+        items: title === 'Documents' ? items : items.sort((a, b) => (b.count || 0) - (a.count || 0))
+      }));
+  }, [topics, entities, artifacts]);
 
   // Resize logic for Graph
   const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -650,40 +696,33 @@ function App() {
                         )}
                       </div>
                       
-                      {/* Topics Column */}
-                      <div>
+                      {/* Knowledge Categories for Radial Menu */}
+                      <div className="md:col-span-1 lg:col-span-2">
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
-                          <Hash className="w-5 h-5 text-synora-accent" /> Extracted Topics
+                          <Compass className="w-5 h-5 text-synora-accent" /> Knowledge Hub
                         </h3>
-                        {topics.length === 0 ? (
-                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No topics extracted yet.</p>
+                        {radialCategories.length === 0 ? (
+                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">Your knowledge graph is empty.</p>
                         ) : (
-                          <div className="flex flex-wrap gap-3">
-                            {topics.map(topic => (
-                              <div key={topic.id} className="group flex items-center gap-2 bg-synora-surface border border-synora-border hover:border-synora-accent/50 rounded-full px-4 py-2 transition-all hover:-translate-y-0.5">
-                                <span className="font-medium">{topic.name}</span>
-                                <span className="bg-synora-bg text-synora-text-secondary text-xs rounded-full px-2 py-0.5 border border-synora-border">{topic.count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
-                          <Box className="w-5 h-5 text-synora-accent" /> Named Entities
-                        </h3>
-                        {entities.length === 0 ? (
-                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No entities extracted yet.</p>
-                        ) : (
-                          <div className="flex flex-col gap-3">
-                            {entities.map(entity => (
-                              <div key={entity.id} className="flex justify-between bg-synora-surface border border-synora-border rounded-xl p-3">
-                                <div className="flex flex-col">
-                                  <span className="font-bold">{entity.name}</span>
-                                  <span className="text-xs text-synora-accent uppercase mt-0.5">{entity.type}</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {radialCategories.map((cat: any) => (
+                              <button 
+                                key={cat.id}
+                                onClick={() => setActiveRadialCategory(cat)}
+                                className="group flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/80 rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-synora-accent/10 relative overflow-hidden"
+                              >
+                                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-synora-accent/10 rounded-full blur-2xl group-hover:bg-synora-accent/20 transition-all"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                  <span className="bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-xs font-bold text-synora-accent tracking-wider">
+                                    {cat.items.length} ITEMS
+                                  </span>
+                                  <div className="w-8 h-8 rounded-full bg-synora-bg border border-synora-border flex items-center justify-center group-hover:scale-110 group-hover:border-synora-accent/50 transition-all">
+                                    <Network className="w-4 h-4 text-synora-text-secondary group-hover:text-synora-accent" />
+                                  </div>
                                 </div>
-                                <div className="text-sm bg-synora-bg px-3 py-1 rounded-full border border-synora-border">{entity.count}</div>
-                              </div>
+                                <h4 className="text-xl font-bold text-white text-left relative z-10">{cat.title}</h4>
+                                <p className="text-sm text-synora-text-secondary text-left mt-2 relative z-10">Click to explore {cat.id.toLowerCase()} in the radial wheel.</p>
+                              </button>
                             ))}
                           </div>
                         )}
@@ -725,47 +764,83 @@ function App() {
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-xs text-synora-text-secondary font-medium">Entities</span></div>
                       </div>
 
-                      {selectedNode && (
-                        <div className="absolute top-0 right-0 h-full w-[350px] bg-synora-surface/95 backdrop-blur-xl border-l border-synora-border shadow-2xl p-6 flex flex-col animate-fade-in z-20">
-                          <div className="flex justify-between items-start mb-6">
-                            <div>
-                              <span className="text-xs uppercase text-synora-accent font-bold tracking-wider">{selectedNode.group}</span>
-                              <h4 className="text-xl font-bold mt-1 text-white leading-tight">{selectedNode.name}</h4>
-                            </div>
-                            <button onClick={() => setSelectedNode(null)} className="text-synora-text-secondary hover:text-white p-1 bg-synora-bg rounded-lg">
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                          <div className="flex-1 overflow-y-auto space-y-6">
-                            {selectedNode.details && (
-                              <div>
-                                <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2">Summary</h5>
-                                <p className="text-sm leading-relaxed">{selectedNode.details}</p>
-                              </div>
-                            )}
-                            {selectedNode.sourceUrl && (
-                              <div>
-                                <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2">Source</h5>
-                                <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline break-all">
-                                  {selectedNode.sourceUrl}
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                          <div className="pt-4 border-t border-synora-border mt-auto shrink-0">
-                            <button 
-                              onClick={() => {
-                                setChatQuery(`Tell me everything you know about ${selectedNode.name}.`);
-                                setActiveTab('CHAT');
-                              }} 
-                              className="w-full btn-primary flex items-center justify-center gap-2 py-3 shadow-lg shadow-synora-accent/20"
-                            >
-                              <MessageSquare className="w-5 h-5" /> Chat with AI about this
-                            </button>
-                          </div>
-                        </div>
-                      )}
+
                     </div>
+                  )}
+
+                  {/* Selected Node Details Panel */}
+                  {selectedNode && (
+                    <div className="absolute top-0 right-0 h-full w-[350px] bg-synora-surface/95 backdrop-blur-xl border-l border-synora-border shadow-2xl p-6 flex flex-col animate-fade-in z-20">
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <span className="text-xs uppercase text-synora-accent font-bold tracking-wider">{selectedNode.group}</span>
+                          <h4 className="text-xl font-bold mt-1 text-white leading-tight">{selectedNode.name}</h4>
+                        </div>
+                        <button onClick={() => setSelectedNode(null)} className="text-synora-text-secondary hover:text-white p-1 bg-synora-bg rounded-lg">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-6">
+                        {selectedNode.details && (
+                          <div>
+                            <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2">Summary</h5>
+                            <p className="text-sm leading-relaxed">{selectedNode.details}</p>
+                          </div>
+                        )}
+                        {wikiSummary ? (
+                          <div className="bg-synora-bg p-4 rounded-xl border border-synora-border">
+                            <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2 flex items-center gap-2"><Box className="w-4 h-4"/> Wikipedia Article</h5>
+                            <p className="text-sm leading-relaxed text-white/90">{wikiSummary}</p>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => fetchWiki(selectedNode.name)}
+                            disabled={isFetchingWiki}
+                            className="w-full bg-synora-surface border border-synora-border hover:border-synora-accent text-synora-text-secondary hover:text-white rounded-xl py-3 flex items-center justify-center gap-2 transition-all text-sm"
+                          >
+                            {isFetchingWiki ? <Loader2 className="w-4 h-4 animate-spin" /> : <GraduationCap className="w-4 h-4" />}
+                            {isFetchingWiki ? "Fetching article..." : "Fetch Wikipedia Article"}
+                          </button>
+                        )}
+                        {selectedNode.sourceUrl && (
+                          <div>
+                            <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2">Source</h5>
+                            <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline break-all">
+                              {selectedNode.sourceUrl}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-4 border-t border-synora-border mt-auto shrink-0">
+                        <button 
+                          onClick={() => {
+                            setChatQuery(`Tell me everything you know about ${selectedNode.name}.`);
+                            setActiveTab('CHAT');
+                          }} 
+                          className="w-full btn-primary flex items-center justify-center gap-2 py-3 shadow-lg shadow-synora-accent/20"
+                        >
+                          <MessageSquare className="w-5 h-5" /> Chat with AI about this
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Radial Menu Overlay */}
+                  {activeRadialCategory && (
+                    <RadialMenu 
+                      title={activeRadialCategory.title}
+                      items={activeRadialCategory.items}
+                      onClose={() => setActiveRadialCategory(null)}
+                      onSelect={(item) => {
+                        if (item.data) {
+                          if (item.data.isArtifact) {
+                            setSelectedArtifact(item.data);
+                          } else {
+                            setSelectedNode(item.data);
+                          }
+                        }
+                      }}
+                    />
                   )}
 
                   {/* Artifact Reader Modal */}
