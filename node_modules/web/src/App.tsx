@@ -1024,7 +1024,7 @@ function App() {
                         <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/10 rounded-full blur-3xl group-hover:bg-synora-accent/30 transition-all duration-700"></div>
                       </div>
                       
-                      <div className="p-6 relative z-10 flex flex-col h-full">
+                      <div className="p-6 relative z-10 flex flex-col flex-1">
                         <div className="flex items-center gap-2 mb-4 shrink-0">
                           <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-lg backdrop-blur-md ${rec.type === 'SYNTHESIS' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>
                             {rec.type === 'SYNTHESIS' ? <><Network className="w-3 h-3 inline mr-1"/> Synthesis</> : <><Box className="w-3 h-3 inline mr-1"/> Concept</>}
