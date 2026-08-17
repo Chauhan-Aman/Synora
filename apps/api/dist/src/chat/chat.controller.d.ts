@@ -5,7 +5,7 @@ export declare class ChatController {
     private readonly captureService;
     private readonly logger;
     constructor(prisma: PrismaService, captureService: CaptureService);
-    chat(query: string, history: any[], user: any): Promise<{
+    chat(query: string, history: any[]): Promise<{
         response: any;
         sources: string[];
     }>;

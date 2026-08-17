@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 type InputType = 'URL' | 'TEXT' | 'FILE';
@@ -41,7 +41,7 @@ function App() {
 
   // Resize logic for Graph
   const graphContainerRef = useRef<HTMLDivElement>(null);
-  const fgRef = useRef<any>();
+  const fgRef = useRef<any>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
@@ -64,6 +64,12 @@ function App() {
     content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
   }]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Voice State
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
 
   // Learn State
   const [flashcards, setFlashcards] = useState<any[]>([]);
@@ -92,6 +98,80 @@ function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
+
+  useEffect(() => {
+    // Initialize Speech Synthesis
+    if ('speechSynthesis' in window) {
+      synthRef.current = window.speechSynthesis;
+    }
+
+    // Initialize Speech Recognition
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = (e: any) => {
+        console.error('Speech recognition error', e);
+        setIsListening(false);
+      };
+      
+      recognition.onresult = (e: any) => {
+        let interimTranscript = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const transcript = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            setChatQuery(prev => prev + transcript + ' ');
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      if (isSpeaking && synthRef.current) {
+        synthRef.current.cancel();
+        setIsSpeaking(false);
+      }
+      recognitionRef.current.start();
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (synthRef.current) {
+      synthRef.current.cancel();
+      setIsSpeaking(false);
+    }
+  };
+
+  const speakText = (text: string) => {
+    if (!synthRef.current) return;
+    
+    synthRef.current.cancel();
+    
+    // Clean text: remove URLs, brackets, formatting
+    const cleanText = text.replace(/\[.*?\]\s*\(.*?\)/g, '').replace(/https?:\/\/[^\s]+/g, '').replace(/[#*`]/g, '');
+    
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.05;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    synthRef.current.speak(utterance);
+  };
 
   const fetchWithAuth = async (url: string, options: any = {}) => {
     const headers = {
@@ -204,7 +284,7 @@ function App() {
     }
   };
 
-  const handleScoreCard = async (score: number) => {
+  const handleReview = async (score: number) => {
     const card = flashcards[currentCardIndex];
     if (!card) return;
 
@@ -294,6 +374,10 @@ function App() {
         content: data.response,
         sources: data.sources 
       }]);
+      
+      // Auto-speak response
+      speakText(data.response);
+      
     } catch (err) {
       console.error(err);
       setChatHistory(prev => [...prev, { 
@@ -849,16 +933,40 @@ function App() {
                     value={chatQuery}
                     onChange={(e) => setChatQuery(e.target.value)}
                     placeholder="Ask a question about your knowledge graph..."
-                    className="glass-input pr-12 w-full bg-synora-bg"
+                    className="glass-input pr-32 w-full bg-synora-bg"
                     disabled={isChatting}
                   />
-                  <button
-                    type="submit"
-                    disabled={isChatting || !chatQuery.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {isSpeaking && (
+                      <button
+                        type="button"
+                        onClick={stopSpeaking}
+                        className="p-2 text-synora-text-secondary hover:text-white hover:bg-synora-border rounded-lg transition-colors"
+                        title="Stop speaking"
+                      >
+                        <VolumeX className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={toggleListening}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isListening 
+                          ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30 animate-pulse' 
+                          : 'text-synora-text-secondary hover:text-white hover:bg-synora-border'
+                      }`}
+                      title={isListening ? 'Stop listening' : 'Start voice input'}
+                    >
+                      {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isChatting || !chatQuery.trim()}
+                      className="p-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>

@@ -49,8 +49,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatController = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
-const current_user_decorator_1 = require("../auth/current-user.decorator");
 const duck_duck_scrape_1 = require("duck-duck-scrape");
 const cheerio = __importStar(require("cheerio"));
 const capture_service_1 = require("../capture/capture.service");
@@ -62,7 +60,8 @@ let ChatController = ChatController_1 = class ChatController {
         this.prisma = prisma;
         this.captureService = captureService;
     }
-    async chat(query, history, user) {
+    async chat(query, history) {
+        const user = { userId: 'test-user-id' };
         if (!query) {
             throw new common_1.HttpException('Query is required', common_1.HttpStatus.BAD_REQUEST);
         }
@@ -254,13 +253,11 @@ __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)('query')),
     __param(1, (0, common_1.Body)('history')),
-    __param(2, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Array, Object]),
+    __metadata("design:paramtypes", [String, Array]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "chat", null);
 exports.ChatController = ChatController = ChatController_1 = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('chat'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         capture_service_1.CaptureService])

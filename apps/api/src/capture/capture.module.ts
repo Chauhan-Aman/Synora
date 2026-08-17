@@ -15,5 +15,6 @@ import { PrismaModule } from '../prisma/prisma.module';
   ],
   controllers: [CaptureController],
   providers: [CaptureService],
+  exports: [CaptureService],
 })
 export class CaptureModule {}

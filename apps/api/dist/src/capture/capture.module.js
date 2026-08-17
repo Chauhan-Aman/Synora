@@ -25,6 +25,7 @@ exports.CaptureModule = CaptureModule = __decorate([
         ],
         controllers: [capture_controller_1.CaptureController],
         providers: [capture_service_1.CaptureService],
+        exports: [capture_service_1.CaptureService],
     })
 ], CaptureModule);
 //# sourceMappingURL=capture.module.js.map
