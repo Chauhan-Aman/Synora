@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 type InputType = 'URL' | 'TEXT' | 'FILE';
@@ -7,6 +7,7 @@ type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER';
 
 interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
+interface Artifact { id: string; title?: string; sourceUrl: string; type: string; status: string; content?: string; summary?: string; createdAt: string; topics: {id: string, name: string}[] }
 interface ChatMessage { role: 'user' | 'assistant'; content: string; sources?: string[]; }
 
 function App() {
@@ -31,10 +32,12 @@ function App() {
   // Knowledge State
   const [topics, setTopics] = useState<Topic[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('LIST');
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
 
   // Resize logic for Graph
   const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -141,16 +144,18 @@ function App() {
   const fetchKnowledge = async () => {
     setIsLoadingKnowledge(true);
     try {
-      const [topicsRes, entitiesRes, graphRes] = await Promise.all([
+      const [topicsRes, entitiesRes, graphRes, artifactsRes] = await Promise.all([
         fetchWithAuth('http://localhost:3000/knowledge/topics'),
         fetchWithAuth('http://localhost:3000/knowledge/entities'),
-        fetchWithAuth('http://localhost:3000/knowledge/graph')
+        fetchWithAuth('http://localhost:3000/knowledge/graph'),
+        fetchWithAuth('http://localhost:3000/knowledge/artifacts')
       ]);
       setTopics(await topicsRes.json());
       setEntities(await entitiesRes.json());
       setGraphData(await graphRes.json());
-    } catch (error) {
-      console.error("Failed to fetch knowledge graph", error);
+      setArtifacts(await artifactsRes.json());
+    } catch (err: any) {
+      console.error("Failed to fetch knowledge graph", err);
     } finally {
       setIsLoadingKnowledge(false);
     }
@@ -527,7 +532,41 @@ function App() {
               ) : (
                 <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden" ref={graphContainerRef}>
                   {knowledgeView === 'LIST' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full overflow-y-auto pr-2">
+                      {/* Documents / Artifacts Column */}
+                      <div>
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
+                          <FileText className="w-5 h-5 text-synora-accent" /> Documents
+                        </h3>
+                        {artifacts.length === 0 ? (
+                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No documents captured yet.</p>
+                        ) : (
+                          <div className="flex flex-col gap-3">
+                            {artifacts.map(artifact => (
+                              <div 
+                                key={artifact.id} 
+                                onClick={() => setSelectedArtifact(artifact)}
+                                className="flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/50 rounded-xl p-4 cursor-pointer hover:-translate-y-0.5 transition-all group"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${artifact.type === 'URL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : artifact.type === 'PDF' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                                    {artifact.type}
+                                  </span>
+                                  <span className="text-xs text-synora-text-secondary">{new Date(artifact.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <span className="font-bold text-white mb-2 line-clamp-2 leading-snug group-hover:text-synora-accent transition-colors">
+                                  {artifact.title || (artifact.sourceUrl ? artifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : (artifact.content ? artifact.content.substring(0, 50) + '...' : 'Unknown Document'))}
+                                </span>
+                                {artifact.summary && (
+                                  <p className="text-xs text-synora-text-secondary line-clamp-2 leading-relaxed">{artifact.summary}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Topics Column */}
                       <div>
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <Hash className="w-5 h-5 text-synora-accent" /> Extracted Topics
@@ -613,29 +652,22 @@ function App() {
                               <X className="w-5 h-5" />
                             </button>
                           </div>
-                          
-                          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                            {selectedNode.details ? (
-                              <div className="mb-6">
-                                <h5 className="text-sm font-bold text-synora-text-secondary mb-3 flex items-center gap-2"><BrainCircuit className="w-4 h-4"/> AI Summary</h5>
-                                <div className="bg-synora-bg p-4 rounded-xl text-sm leading-relaxed border border-synora-border/50 text-gray-300 shadow-inner">
-                                  {selectedNode.details}
-                                </div>
+                          <div className="flex-1 overflow-y-auto space-y-6">
+                            {selectedNode.details && (
+                              <div>
+                                <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2">Summary</h5>
+                                <p className="text-sm leading-relaxed">{selectedNode.details}</p>
                               </div>
-                            ) : (
-                              <p className="text-sm text-synora-text-secondary mb-6 italic">No AI summary available for this node.</p>
                             )}
-                            
                             {selectedNode.sourceUrl && (
-                              <div className="mb-6">
-                                <h5 className="text-sm font-bold text-synora-text-secondary mb-2 flex items-center gap-2"><Link className="w-4 h-4"/> Source Link</h5>
-                                <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-synora-accent hover:underline break-all block bg-synora-accent/10 p-3 rounded-lg border border-synora-accent/20">
+                              <div>
+                                <h5 className="text-xs font-bold text-synora-text-secondary uppercase mb-2">Source</h5>
+                                <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline break-all">
                                   {selectedNode.sourceUrl}
                                 </a>
                               </div>
                             )}
                           </div>
-                          
                           <div className="pt-4 border-t border-synora-border mt-auto shrink-0">
                             <button 
                               onClick={() => {
@@ -651,12 +683,59 @@ function App() {
                       )}
                     </div>
                   )}
+
+                  {/* Artifact Reader Modal */}
+                  {selectedArtifact && (
+                    <div className="absolute inset-0 bg-synora-bg/95 backdrop-blur-xl z-50 flex flex-col animate-fade-in rounded-xl border border-synora-border overflow-hidden">
+                      <div className="flex items-center justify-between p-6 border-b border-synora-border/50 shrink-0">
+                        <div>
+                          <span className="text-xs font-bold px-2 py-1 rounded-full border bg-synora-surface text-synora-accent border-synora-accent/30 mb-2 inline-block">
+                            {selectedArtifact.type}
+                          </span>
+                          <h2 className="text-2xl font-bold text-white max-w-2xl truncate">
+                            {selectedArtifact.title || (selectedArtifact.sourceUrl ? selectedArtifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : 'Unknown Document')}
+                          </h2>
+                          <p className="text-sm text-synora-text-secondary mt-1">{new Date(selectedArtifact.createdAt).toLocaleString()}</p>
+                        </div>
+                        <button 
+                          onClick={() => setSelectedArtifact(null)} 
+                          className="glass-button p-2"
+                        >
+                          <X className="w-6 h-6" />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full flex flex-col gap-8 pb-16">
+                        {selectedArtifact.summary && (
+                          <div className="bg-synora-accent/10 border border-synora-accent/20 p-6 rounded-2xl shrink-0">
+                            <h3 className="text-sm font-bold text-synora-accent uppercase mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4"/> AI Summary</h3>
+                            <p className="text-lg leading-relaxed text-white/90">{selectedArtifact.summary}</p>
+                          </div>
+                        )}
+                        <div className="shrink-0">
+                          <h3 className="text-sm font-bold text-synora-text-secondary uppercase mb-4 flex items-center gap-2"><FileText className="w-4 h-4"/> Full Document Content</h3>
+                          <div className="bg-synora-surface border border-synora-border p-6 rounded-2xl font-serif text-lg leading-loose text-white/80 whitespace-pre-wrap">
+                            {selectedArtifact.content || "No content available. It might still be processing, or this was a URL scrape without raw content saved."}
+                          </div>
+                        </div>
+                        {selectedArtifact.topics.length > 0 && (
+                          <div className="shrink-0">
+                            <h3 className="text-sm font-bold text-synora-text-secondary uppercase mb-4 flex items-center gap-2"><Hash className="w-4 h-4"/> Topics in this Document</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedArtifact.topics.map(t => (
+                                <span key={t.id} className="bg-synora-surface border border-synora-border px-3 py-1.5 rounded-full text-sm">
+                                  {t.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
-
-          {/* LEARN TAB */}
           {activeTab === 'LEARN' && (
             <div className="w-full max-w-3xl mx-auto flex flex-col h-full mt-8 animate-fade-in px-4">
               {isLoadingLearn ? (
@@ -818,21 +897,24 @@ function App() {
                   <p className="text-sm mt-2 opacity-70">Capture more knowledge to help the AI understand your taste!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 overflow-y-auto pb-8 pr-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto pb-8 pr-2 flex-1">
                   {recommendations.map((rec) => (
-                    <div key={rec.id} className="glass-panel p-6 rounded-2xl flex flex-col h-full hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group relative overflow-hidden">
-                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/5 rounded-full blur-3xl group-hover:bg-synora-accent/20 transition-all duration-700"></div>
+                    <div key={rec.id} className="glass-panel p-6 rounded-2xl flex flex-col hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group relative">
+                      {/* Glow effect contained without clipping the main card content */}
+                      <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/5 rounded-full blur-3xl group-hover:bg-synora-accent/20 transition-all duration-700"></div>
+                      </div>
                       
-                      <div className="flex items-center gap-2 mb-4">
+                      <div className="flex items-center gap-2 mb-4 shrink-0 relative z-10">
                         <span className={`text-xs font-bold px-3 py-1 rounded-full border ${rec.type === 'SYNTHESIS' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                           {rec.type === 'SYNTHESIS' ? <><Network className="w-3 h-3 inline mr-1"/> Synthesis</> : <><Box className="w-3 h-3 inline mr-1"/> Concept</>}
                         </span>
                       </div>
                       
-                      <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">{rec.title}</h3>
-                      <p className="text-synora-text-secondary mb-6 text-lg leading-relaxed flex-1">{rec.description}</p>
+                      <h3 className="text-2xl font-bold text-white mb-3 tracking-tight shrink-0 relative z-10">{rec.title}</h3>
+                      <p className="text-synora-text-secondary mb-6 text-lg leading-relaxed shrink-0 relative z-10">{rec.description}</p>
                       
-                      <div className="mt-auto">
+                      <div className="mt-auto shrink-0 relative z-10">
                         <div className="bg-synora-surface/50 rounded-xl p-4 mb-6 border border-synora-border/50 text-sm text-synora-text-secondary flex items-start gap-3">
                           <BrainCircuit className="w-4 h-4 text-synora-accent shrink-0 mt-0.5" />
                           <p>{rec.reasoning}</p>

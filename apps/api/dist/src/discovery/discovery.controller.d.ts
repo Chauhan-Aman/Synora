@@ -14,6 +14,7 @@ export declare class DiscoveryController {
     }[]>;
     exploreRecommendation(id: string, user: any): Promise<{
         id: string;
+        title: string | null;
         type: string;
         status: string;
         userId: string;

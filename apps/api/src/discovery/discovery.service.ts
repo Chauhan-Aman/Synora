@@ -154,6 +154,7 @@ Write in a compelling, structured format suitable for saving into a personal kno
     const artifact = await this.prisma.artifact.create({
       data: {
         userId,
+        title: recommendation.title,
         type: 'TEXT',
         status: 'pending',
         sourceUrl: `synora://discovery/${recommendation.id}`,

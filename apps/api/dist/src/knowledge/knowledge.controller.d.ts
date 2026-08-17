@@ -32,4 +32,18 @@ export declare class KnowledgeController {
             target: string;
         }[];
     }>;
+    getArtifacts(user: any): Promise<{
+        id: string;
+        title: string | null;
+        sourceUrl: string | null;
+        type: string;
+        status: string;
+        content: string | null;
+        summary: string | undefined;
+        createdAt: Date;
+        topics: {
+            id: string;
+            name: string;
+        }[];
+    }[]>;
 }

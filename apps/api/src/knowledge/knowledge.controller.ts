@@ -115,4 +115,28 @@ export class KnowledgeController {
 
     return { nodes, links };
   }
+
+  @Get('artifacts')
+  async getArtifacts(@CurrentUser() user: any) {
+    const artifacts = await this.prisma.artifact.findMany({
+      where: { userId: user.userId },
+      include: {
+        summary: true,
+        topics: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return artifacts.map(a => ({
+      id: a.id,
+      title: a.title,
+      sourceUrl: a.sourceUrl,
+      type: a.type,
+      status: a.status,
+      content: a.content,
+      summary: a.summary?.text,
+      createdAt: a.createdAt,
+      topics: a.topics
+    }));
+  }
 }

@@ -125,6 +125,7 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
         
         Respond ONLY with a valid JSON object matching this exact schema. DO NOT just copy the example text in the schema, you must GENERATE REAL content based on the TEXT TO ANALYZE:
         {
+          "title": "A short, catchy, 3 to 6 word title for this document",
           "summary": "A 2-3 sentence summary of the text",
           "topics": ["Real Topic 1", "Real Topic 2", "Real Topic 3"],
           "entities": [
@@ -159,6 +160,12 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                 throw new Error('LLM Extraction Failed');
             }
             this.logger.log('Ollama extraction successful! Saving metadata to the database...');
+            if (extractedData.title) {
+                await this.prisma.artifact.update({
+                    where: { id: artifactId },
+                    data: { title: extractedData.title }
+                });
+            }
             if (extractedData.summary) {
                 await this.prisma.summary.create({
                     data: {

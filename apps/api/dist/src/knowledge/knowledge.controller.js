@@ -117,6 +117,27 @@ let KnowledgeController = class KnowledgeController {
         }
         return { nodes, links };
     }
+    async getArtifacts(user) {
+        const artifacts = await this.prisma.artifact.findMany({
+            where: { userId: user.userId },
+            include: {
+                summary: true,
+                topics: { select: { id: true, name: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        return artifacts.map(a => ({
+            id: a.id,
+            title: a.title,
+            sourceUrl: a.sourceUrl,
+            type: a.type,
+            status: a.status,
+            content: a.content,
+            summary: a.summary?.text,
+            createdAt: a.createdAt,
+            topics: a.topics
+        }));
+    }
 };
 exports.KnowledgeController = KnowledgeController;
 __decorate([
@@ -140,6 +161,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], KnowledgeController.prototype, "getGraph", null);
+__decorate([
+    (0, common_1.Get)('artifacts'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], KnowledgeController.prototype, "getArtifacts", null);
 exports.KnowledgeController = KnowledgeController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('knowledge'),

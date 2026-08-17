@@ -20,6 +20,7 @@ export declare class DiscoveryService {
     private generateDailyFeed;
     exploreRecommendation(userId: string, id: string): Promise<{
         id: string;
+        title: string | null;
         type: string;
         status: string;
         userId: string;
