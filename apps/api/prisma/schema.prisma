@@ -49,6 +49,7 @@ model Chunk {
   id         String   @id @default(uuid())
   text       String
   embedding  Unsupported("vector(768)")?
+  searchVector Unsupported("tsvector")?
   
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)

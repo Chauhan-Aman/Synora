@@ -71,18 +71,34 @@ Rewritten Query:`;
             const embedData = await embeddingResponse.json();
             const vector = embedData.embedding;
             const vectorString = `[${vector.join(',')}]`;
-            this.logger.log(`Searching vector database for relevant chunks for user ${user.userId}...`);
+            this.logger.log(`Performing Hybrid Search (BM25 + Vector) for relevant chunks for user ${user.userId}...`);
             const relevantChunks = await this.prisma.$queryRaw `
+        WITH vector_results AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> ${vectorString}::vector) as vector_rank
+          FROM "Chunk"
+          WHERE "userId" = ${user.userId} AND embedding IS NOT NULL
+          ORDER BY vector_rank
+          LIMIT 20
+        ),
+        keyword_results AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd("searchVector", plainto_tsquery('english', ${searchQuery})) DESC) as keyword_rank
+          FROM "Chunk"
+          WHERE "userId" = ${user.userId} AND "searchVector" @@ plainto_tsquery('english', ${searchQuery})
+          ORDER BY keyword_rank
+          LIMIT 20
+        )
         SELECT 
           c.id, 
-          c.text as content, 
-          a."sourceUrl" as "sourceUrl", 
-          1 - (c.embedding <=> ${vectorString}::vector) as similarity
+          c.text as content,
+          a."sourceUrl" as "sourceUrl",
+          COALESCE(1.0 / (60 + vr.vector_rank), 0.0) + COALESCE(1.0 / (60 + kr.keyword_rank), 0.0) as rrf_score
         FROM "Chunk" c
         JOIN "Artifact" a ON c."artifactId" = a.id
-        WHERE c.embedding IS NOT NULL AND c."userId" = ${user.userId}
-        ORDER BY c.embedding <=> ${vectorString}::vector
-        LIMIT 5
+        LEFT JOIN vector_results vr ON c.id = vr.id
+        LEFT JOIN keyword_results kr ON c.id = kr.id
+        WHERE vr.id IS NOT NULL OR kr.id IS NOT NULL
+        ORDER BY rrf_score DESC
+        LIMIT 5;
       `;
             let contextText = "No personal knowledge captured yet.";
             let sources = [];

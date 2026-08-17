@@ -12,8 +12,11 @@ import { AuthModule } from './auth/auth.module';
 import { LearnModule } from './learn/learn.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 
+import { ScheduleModule } from '@nestjs/schedule';
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     BullModule.forRoot({
       connection: {
         host: 'localhost',

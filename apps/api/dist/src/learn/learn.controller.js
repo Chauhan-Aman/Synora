@@ -17,10 +17,17 @@ const common_1 = require("@nestjs/common");
 const learn_service_1 = require("./learn.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/current-user.decorator");
+const learn_cron_service_1 = require("./learn.cron.service");
 let LearnController = class LearnController {
     learnService;
-    constructor(learnService) {
+    learnCronService;
+    constructor(learnService, learnCronService) {
         this.learnService = learnService;
+        this.learnCronService = learnCronService;
+    }
+    async triggerCron() {
+        this.learnCronService.handleDailySpacedRepetition();
+        return { status: 'Cron job triggered in background' };
     }
     async getDueFlashcards(user) {
         return this.learnService.getDueFlashcards(user.userId);
@@ -30,6 +37,12 @@ let LearnController = class LearnController {
     }
 };
 exports.LearnController = LearnController;
+__decorate([
+    (0, common_1.Post)('trigger-cron'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], LearnController.prototype, "triggerCron", null);
 __decorate([
     (0, common_1.Get)('due'),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
@@ -49,6 +62,7 @@ __decorate([
 exports.LearnController = LearnController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('learn'),
-    __metadata("design:paramtypes", [learn_service_1.LearnService])
+    __metadata("design:paramtypes", [learn_service_1.LearnService,
+        learn_cron_service_1.LearnCronService])
 ], LearnController);
 //# sourceMappingURL=learn.controller.js.map

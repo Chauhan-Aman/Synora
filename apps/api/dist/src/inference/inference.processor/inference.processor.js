@@ -233,7 +233,7 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                                 artifactId: artifactId,
                             }
                         });
-                        await this.prisma.$executeRaw `UPDATE "Chunk" SET embedding = ${vectorString}::vector WHERE id = ${newChunk.id}`;
+                        await this.prisma.$executeRaw `UPDATE "Chunk" SET embedding = ${vectorString}::vector, "searchVector" = to_tsvector('english', ${chunkText}) WHERE id = ${newChunk.id}`;
                     }
                     else {
                         this.logger.warn(`Failed to generate embedding: ${embeddingResponse.statusText}`);

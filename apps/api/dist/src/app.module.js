@@ -19,12 +19,14 @@ const chat_module_1 = require("./chat/chat.module");
 const auth_module_1 = require("./auth/auth.module");
 const learn_module_1 = require("./learn/learn.module");
 const discovery_module_1 = require("./discovery/discovery.module");
+const schedule_1 = require("@nestjs/schedule");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            schedule_1.ScheduleModule.forRoot(),
             bullmq_1.BullModule.forRoot({
                 connection: {
                     host: 'localhost',

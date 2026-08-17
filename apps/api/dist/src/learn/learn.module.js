@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const learn_controller_1 = require("./learn.controller");
 const learn_service_1 = require("./learn.service");
 const prisma_module_1 = require("../prisma/prisma.module");
+const learn_cron_service_1 = require("./learn.cron.service");
 let LearnModule = class LearnModule {
 };
 exports.LearnModule = LearnModule;
@@ -18,7 +19,7 @@ exports.LearnModule = LearnModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
         controllers: [learn_controller_1.LearnController],
-        providers: [learn_service_1.LearnService]
+        providers: [learn_service_1.LearnService, learn_cron_service_1.LearnCronService]
     })
 ], LearnModule);
 //# sourceMappingURL=learn.module.js.map
