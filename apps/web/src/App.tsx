@@ -1007,24 +1007,24 @@ function App() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto pb-8 pr-2 flex-1">
                   {recommendations.map((rec) => (
-                    <div key={rec.id} className="glass-panel rounded-2xl flex flex-col hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group relative overflow-hidden">
+                    <div key={rec.id} className="glass-panel rounded-2xl grid hover:-translate-y-1 hover:shadow-2xl hover:shadow-synora-accent/10 hover:border-synora-accent/40 transition-all group overflow-hidden">
                       {/* Background Image if available */}
                       {rec.imageUrl && (
                         <>
                           <div 
-                            className="absolute inset-0 bg-cover bg-center opacity-30 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-105"
+                            className="col-start-1 row-start-1 bg-cover bg-center opacity-30 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-105"
                             style={{ backgroundImage: `url(${rec.imageUrl})` }}
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-synora-bg via-synora-bg/80 to-transparent" />
+                          <div className="col-start-1 row-start-1 bg-gradient-to-t from-synora-bg via-synora-bg/80 to-transparent z-[1]" />
                         </>
                       )}
 
                       {/* Glow effect contained without clipping the main card content */}
-                      <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                      <div className="col-start-1 row-start-1 overflow-hidden pointer-events-none z-[2] relative">
                         <div className="absolute -right-10 -top-10 w-32 h-32 bg-synora-accent/10 rounded-full blur-3xl group-hover:bg-synora-accent/30 transition-all duration-700"></div>
                       </div>
                       
-                      <div className="p-6 relative z-10 flex flex-col flex-1">
+                      <div className="col-start-1 row-start-1 p-6 z-10 flex flex-col">
                         <div className="flex items-center gap-2 mb-4 shrink-0">
                           <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-lg backdrop-blur-md ${rec.type === 'SYNTHESIS' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>
                             {rec.type === 'SYNTHESIS' ? <><Network className="w-3 h-3 inline mr-1"/> Synthesis</> : <><Box className="w-3 h-3 inline mr-1"/> Concept</>}
