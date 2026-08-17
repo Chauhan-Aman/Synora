@@ -18,7 +18,7 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<Tab>('KNOWLEDGE');
+  const [activeTab, setActiveTab] = useState<Tab>('CAPTURE');
   
   // Capture State
   const [inputType, setInputType] = useState<InputType>('URL');
@@ -33,11 +33,12 @@ function App() {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
-  const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('GRAPH');
+  const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('LIST');
   const [selectedNode, setSelectedNode] = useState<any>(null);
 
   // Resize logic for Graph
   const graphContainerRef = useRef<HTMLDivElement>(null);
+  const fgRef = useRef<any>();
   const [graphDimensions, setGraphDimensions] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
@@ -71,6 +72,13 @@ function App() {
     if (token && activeTab === 'KNOWLEDGE') fetchKnowledge();
     if (token && activeTab === 'LEARN') fetchLearn();
   }, [activeTab, token]);
+
+  useEffect(() => {
+    if (fgRef.current) {
+      fgRef.current.d3Force('charge').strength(-200);
+      fgRef.current.d3Force('link').distance(120);
+    }
+  }, [graphData, knowledgeView, activeTab]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -528,12 +536,11 @@ function App() {
                     <div className="w-full h-full bg-synora-bg/50 border border-synora-border rounded-xl absolute inset-0">
                       {graphDimensions.width > 0 && (
                         <ForceGraph2D
+                          ref={fgRef}
                           graphData={graphData}
                           width={graphDimensions.width}
                           height={graphDimensions.height}
                           nodeRelSize={6}
-                          dagMode="lr"
-                          dagLevelDistance={200}
                           linkDirectionalArrowLength={4}
                           linkDirectionalArrowRelPos={1}
                           nodeCanvasObject={renderNode}
@@ -551,6 +558,7 @@ function App() {
                             node.fx = node.x;
                             node.fy = node.y;
                           }}
+                          onEngineStop={() => fgRef.current?.zoomToFit(400, 50)}
                         />
                       )}
                       
