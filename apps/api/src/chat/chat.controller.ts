@@ -214,7 +214,7 @@ Reply with ONLY the word "YES" or "NO".`;
               
               // Asynchronously add to Knowledge Graph!
               this.logger.log(`Pushing ${result.url} to Capture Queue for permanent indexing...`);
-              this.captureService.create({ type: 'URL', sourceUrl: result.url }, user.userId).catch((e: any) => {
+              this.captureService.create({ type: 'WEB_SEARCH', sourceUrl: result.url }, user.userId).catch((e: any) => {
                 this.logger.error(`Failed to push web result to capture queue: ${e.message}`);
               });
               

@@ -13,6 +13,7 @@ import { LearnModule } from './learn/learn.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
+import { CreateModule } from './create/create.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AuthModule,
     LearnModule,
     DiscoveryModule,
+    CreateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

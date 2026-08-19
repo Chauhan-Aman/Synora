@@ -4,7 +4,7 @@ import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 
 type InputType = 'URL' | 'TEXT' | 'FILE';
-type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER';
+type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER' | 'CREATE';
 
 interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
@@ -37,6 +37,7 @@ function App() {
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('LIST');
+  const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
 
@@ -130,11 +131,46 @@ function App() {
   const [isLoadingDiscover, setIsLoadingDiscover] = useState(false);
   const [exploringId, setExploringId] = useState<string | null>(null);
 
+  // Create State
+  const [draftText, setDraftText] = useState("");
+  const [draftContext, setDraftContext] = useState<any[]>([]);
+  const [isGeneratingParagraph, setIsGeneratingParagraph] = useState(false);
+  const [suggestedParagraph, setSuggestedParagraph] = useState<string>("");
+  const [revisionPrompt, setRevisionPrompt] = useState<string>("");
+  const [isRevising, setIsRevising] = useState(false);
+  const draftTimeoutRef = useRef<any>(null);
+
   useEffect(() => {
     if (token && activeTab === 'KNOWLEDGE') fetchKnowledge();
     if (token && activeTab === 'LEARN') fetchLearn();
     if (token && activeTab === 'DISCOVER') fetchDiscover();
   }, [activeTab, token]);
+
+  useEffect(() => {
+    if (activeTab !== 'CREATE' || !token) return;
+    
+    if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
+    
+    draftTimeoutRef.current = setTimeout(async () => {
+      if (draftText.trim().length < 20) {
+        setDraftContext([]);
+        return;
+      }
+      try {
+        const res = await fetchWithAuth('http://localhost:3000/create/context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ draft: draftText })
+        });
+        const data = await res.json();
+        setDraftContext(data.context || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }, 1500);
+    
+    return () => clearTimeout(draftTimeoutRef.current);
+  }, [draftText, activeTab, token]);
 
   useEffect(() => {
     if (fgRef.current) {
@@ -440,6 +476,57 @@ function App() {
     }
   };
 
+  const handleGenerateParagraph = async () => {
+    if (!draftText.trim() || isGeneratingParagraph) return;
+    setIsGeneratingParagraph(true);
+    try {
+      const res = await fetchWithAuth('http://localhost:3000/create/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft: draftText, context: draftContext })
+      });
+      const data = await res.json();
+      if (data.nextParagraph) {
+        setSuggestedParagraph(data.nextParagraph);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGeneratingParagraph(false);
+    }
+  };
+
+  const handleApprove = () => {
+    setDraftText(prev => prev + (prev.endsWith('\n\n') || prev.length === 0 ? '' : '\n\n') + suggestedParagraph);
+    setSuggestedParagraph("");
+    setRevisionPrompt("");
+  };
+
+  const handleReject = () => {
+    setSuggestedParagraph("");
+    setRevisionPrompt("");
+  };
+
+  const handleRewrite = async () => {
+    if (!suggestedParagraph.trim() || !revisionPrompt.trim() || isRevising) return;
+    setIsRevising(true);
+    try {
+      const res = await fetchWithAuth('http://localhost:3000/create/rewrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft: draftText, suggestedParagraph, instructions: revisionPrompt, context: draftContext })
+      });
+      const data = await res.json();
+      if (data.nextParagraph) {
+        setSuggestedParagraph(data.nextParagraph);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsRevising(false);
+    }
+  };
+
   // Custom node paint for the force graph
   const renderNode = (node: any, ctx: any, globalScale: number) => {
     const label = node.name;
@@ -569,8 +656,8 @@ function App() {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Synora Engine</h1>
           
-          <div className="flex bg-synora-surface/50 backdrop-blur-md p-1.5 rounded-2xl border border-synora-border shadow-xl w-full mx-auto max-w-2xl">
-            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER'] as Tab[]).map((tab) => (
+          <div className="flex bg-synora-surface/50 backdrop-blur-md p-1.5 rounded-2xl border border-synora-border shadow-xl w-full mx-auto max-w-3xl">
+            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -585,6 +672,7 @@ function App() {
                 {tab === 'LEARN' && <GraduationCap className="w-4 h-4" />}
                 {tab === 'CHAT' && <MessageSquare className="w-4 h-4" />}
                 {tab === 'DISCOVER' && <Compass className="w-4 h-4" />}
+                {tab === 'CREATE' && <FileText className="w-4 h-4" />}
                 {tab.charAt(0) + tab.slice(1).toLowerCase()}
               </button>
             ))}
@@ -672,12 +760,18 @@ function App() {
                       <div>
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <FileText className="w-5 h-5 text-synora-accent" /> Documents
+                          <button 
+                            onClick={() => setShowWebSearches(!showWebSearches)}
+                            className="ml-auto text-xs px-3 py-1 bg-synora-surface border border-synora-border rounded-lg hover:border-synora-accent/50 text-synora-text-secondary hover:text-white transition-colors"
+                          >
+                            {showWebSearches ? 'Hide Web Searches' : 'Show Web Searches'}
+                          </button>
                         </h3>
-                        {artifacts.length === 0 ? (
+                        {artifacts.filter(a => showWebSearches || a.type !== 'WEB_SEARCH').length === 0 ? (
                           <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No documents captured yet.</p>
                         ) : (
                           <div className="flex flex-col gap-3">
-                            {artifacts.map(artifact => (
+                            {artifacts.filter(a => showWebSearches || a.type !== 'WEB_SEARCH').map(artifact => (
                               <div 
                                 key={artifact.id} 
                                 onClick={() => setSelectedArtifact(artifact)}
@@ -1102,7 +1196,7 @@ function App() {
 
           {/* DISCOVER TAB */}
           {activeTab === 'DISCOVER' && (
-            <div className="w-full max-w-5xl mx-auto mt-8 flex flex-col min-h-[500px]">
+            <div className="w-full max-w-5xl mx-auto mt-4 pt-4 flex flex-col h-full overflow-y-auto custom-scrollbar pr-2">
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h2 className="text-3xl font-bold flex items-center gap-3 text-white tracking-tight">
@@ -1185,6 +1279,119 @@ function App() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* CREATE TAB */}
+          {activeTab === 'CREATE' && (
+            <div className="flex flex-col lg:flex-row gap-6 h-full mt-4 pb-8 max-w-7xl mx-auto w-full px-4 md:px-0">
+              
+              {/* Left Column: Editor */}
+              <div className="flex-1 flex flex-col glass-panel p-6 rounded-2xl h-full border-synora-border shadow-2xl relative">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-synora-accent" />
+                    Editor
+                  </h2>
+                  <button
+                    onClick={handleGenerateParagraph}
+                    disabled={isGeneratingParagraph || draftText.trim().length < 20}
+                    className="flex items-center gap-2 px-4 py-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-all disabled:opacity-50 text-sm font-medium"
+                  >
+                    {isGeneratingParagraph ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Co-Writing...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4" /> Draft Next Paragraph</>
+                    )}
+                  </button>
+                </div>
+                
+                <textarea
+                  value={draftText}
+                  onChange={(e) => setDraftText(e.target.value)}
+                  placeholder="Start writing your essay, blog post, or ideas here...\n\nAs you type, Synora will automatically surface relevant notes and articles from your knowledge graph in the sidebar to the right."
+                  className="flex-1 bg-synora-bg/30 border border-synora-border/50 rounded-xl p-4 text-synora-text-primary resize-none outline-none focus:border-synora-accent/50 transition-colors placeholder:text-synora-text-secondary/50 font-mono text-sm leading-relaxed"
+                />
+
+                {/* SUGGESTED DRAFT PANEL */}
+                {suggestedParagraph && (
+                  <div className="mt-4 p-4 border border-synora-accent/50 bg-synora-accent/10 rounded-xl flex flex-col gap-3 animate-fade-in shadow-lg shrink-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-synora-accent flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" /> Suggested Draft
+                      </span>
+                      <div className="flex gap-2">
+                        <button onClick={handleReject} className="px-3 py-1 text-xs font-bold rounded-lg bg-synora-surface border border-synora-border hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all">Reject</button>
+                        <button onClick={handleApprove} className="px-3 py-1 text-xs font-bold rounded-lg bg-synora-accent hover:bg-synora-accent-hover text-white transition-all shadow-md">Approve & Merge</button>
+                      </div>
+                    </div>
+                    
+                    <textarea 
+                      value={suggestedParagraph}
+                      onChange={(e) => setSuggestedParagraph(e.target.value)}
+                      className="w-full bg-synora-bg/50 border border-synora-accent/30 rounded-lg p-3 text-sm font-mono text-synora-text-primary resize-none outline-none focus:border-synora-accent min-h-[100px]"
+                    />
+
+                    <div className="flex gap-2 items-center">
+                      <input 
+                        type="text" 
+                        value={revisionPrompt}
+                        onChange={(e) => setRevisionPrompt(e.target.value)}
+                        placeholder="Suggest changes (e.g. 'Make it more formal')"
+                        className="flex-1 bg-synora-bg/50 border border-synora-border rounded-lg px-3 py-2 text-sm outline-none focus:border-synora-accent"
+                        onKeyDown={(e) => e.key === 'Enter' && handleRewrite()}
+                      />
+                      <button 
+                        onClick={handleRewrite}
+                        disabled={!revisionPrompt.trim() || isRevising}
+                        className="px-3 py-2 bg-synora-surface border border-synora-border rounded-lg text-sm font-medium hover:text-white hover:border-synora-accent/50 disabled:opacity-50 transition-all flex items-center gap-2"
+                      >
+                        {isRevising ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
+                        Rewrite
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Dynamic Context */}
+              <div className="w-full lg:w-96 flex flex-col gap-4 h-full shrink-0">
+                <div className="glass-panel p-4 rounded-xl border border-synora-border flex items-center gap-2 shadow-lg mb-2">
+                  <BrainCircuit className="w-5 h-5 text-synora-accent animate-pulse" />
+                  <span className="font-semibold text-sm">Active Context</span>
+                  <span className="text-xs text-synora-text-secondary ml-auto">{draftContext.length} items found</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                  {draftContext.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-synora-text-secondary opacity-50 p-6 text-center">
+                      <Link className="w-8 h-8 mb-2" />
+                      <p className="text-sm">Type at least a sentence to see relevant knowledge automatically appear here.</p>
+                    </div>
+                  ) : (
+                    draftContext.map((artifact) => (
+                      <div key={artifact.id} className="bg-synora-surface/80 backdrop-blur border border-synora-border/50 rounded-xl p-4 hover:border-synora-accent/30 transition-colors shadow-md">
+                        <div className="flex items-start gap-2 mb-2">
+                          <Box className="w-4 h-4 text-synora-accent shrink-0 mt-0.5" />
+                          <h4 className="font-semibold text-sm line-clamp-2 leading-tight">{artifact.title || 'Untitled Knowledge'}</h4>
+                        </div>
+                        <p className="text-xs text-synora-text-secondary line-clamp-4 leading-relaxed mb-3">
+                          {artifact.summary || artifact.content || 'No summary available.'}
+                        </p>
+                        <a 
+                          href={artifact.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] text-synora-accent hover:underline flex items-center gap-1 opacity-80"
+                        >
+                          <Compass className="w-3 h-3" />
+                          Source
+                        </a>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           )}
           

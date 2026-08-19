@@ -226,7 +226,7 @@ Reply with ONLY the word "YES" or "NO".`;
                             sources.push(result.url);
                             agentLogs.push({ action: 'Web Scrape', status: 'done', message: `Scraped and extracted context from: ${result.url}` });
                             this.logger.log(`Pushing ${result.url} to Capture Queue for permanent indexing...`);
-                            this.captureService.create({ type: 'URL', sourceUrl: result.url }, user.userId).catch((e) => {
+                            this.captureService.create({ type: 'WEB_SEARCH', sourceUrl: result.url }, user.userId).catch((e) => {
                                 this.logger.error(`Failed to push web result to capture queue: ${e.message}`);
                             });
                         }
