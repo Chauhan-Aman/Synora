@@ -186,32 +186,22 @@ export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps)
             strokeWidth="2" 
           />
           
-          <text 
-            x={center} 
-            y={center - 10} 
-            fill="#ffffff" 
-            fontSize="18" 
-            fontWeight="bold" 
-            textAnchor="middle"
-          >
-            {title}
-          </text>
-          
-          <text 
-            x={center} 
-            y={center + 15} 
-            fill="#94a3b8" 
-            fontSize="12" 
-            textAnchor="middle"
-          >
-            {displayItems.length} items
-          </text>
+          <foreignObject x={center - 80} y={center - 60} width="160" height="100">
+            <div className="w-full h-full flex flex-col items-center justify-start pt-2">
+              <span className="text-white font-bold text-sm sm:text-base text-center leading-tight px-2 break-words">
+                {title}
+              </span>
+              <span className="text-[#94a3b8] text-xs mt-1">
+                {displayItems.length} items
+              </span>
+            </div>
+          </foreignObject>
         </svg>
 
         {/* Close button at center */}
         <button 
           onClick={onClose}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-8 text-synora-text-secondary hover:text-white bg-synora-surface/50 hover:bg-red-500/80 rounded-full p-2 transition-all border border-transparent hover:border-red-400 z-10"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-10 text-synora-text-secondary hover:text-white bg-synora-surface/50 hover:bg-red-500/80 rounded-full p-2 transition-all border border-transparent hover:border-red-400 z-10"
         >
           <X className="w-5 h-5" />
         </button>
