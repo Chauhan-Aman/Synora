@@ -5,8 +5,13 @@ export declare class ChatController {
     private readonly captureService;
     private readonly logger;
     constructor(prisma: PrismaService, captureService: CaptureService);
-    chat(query: string, history: any[]): Promise<{
+    chat(query: string, history: any[], user: any, forceWebSearch?: boolean): Promise<{
         response: any;
         sources: string[];
+        agentLogs: {
+            action: string;
+            status: "done" | "error";
+            message: string;
+        }[];
     }>;
 }

@@ -49,7 +49,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatController = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const duck_duck_scrape_1 = require("duck-duck-scrape");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const current_user_decorator_1 = require("../auth/current-user.decorator");
 const cheerio = __importStar(require("cheerio"));
 const capture_service_1 = require("../capture/capture.service");
 let ChatController = ChatController_1 = class ChatController {
@@ -60,13 +61,13 @@ let ChatController = ChatController_1 = class ChatController {
         this.prisma = prisma;
         this.captureService = captureService;
     }
-    async chat(query, history) {
-        const user = { userId: 'test-user-id' };
+    async chat(query, history, user, forceWebSearch) {
         if (!query) {
             throw new common_1.HttpException('Query is required', common_1.HttpStatus.BAD_REQUEST);
         }
         try {
             let searchQuery = query;
+            const agentLogs = [];
             if (history && history.length > 0) {
                 const historyText = history.slice(-4).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
                 const rewritePrompt = `Given the following conversation history, rewrite the user's latest query to be a standalone search query. Replace pronouns (he, she, it, they) with the actual entities they refer to from the history. DO NOT answer the question, ONLY return the rewritten query text.
@@ -87,10 +88,12 @@ Rewritten Query:`;
                         const d = await rewriteRes.json();
                         searchQuery = d.response.trim();
                         this.logger.log(`Rewrote query for search: "${searchQuery}"`);
+                        agentLogs.push({ action: 'Query Rewrite', status: 'done', message: `Rewrote query to: "${searchQuery}"` });
                     }
                 }
                 catch (e) {
                     this.logger.error("Failed to rewrite query", e);
+                    agentLogs.push({ action: 'Query Rewrite', status: 'error', message: 'Failed to rewrite query.' });
                 }
             }
             this.logger.log(`Embedding user query: "${searchQuery}"`);
@@ -147,6 +150,7 @@ Rewritten Query:`;
                 sources = [...new Set(allSources)];
             }
             this.logger.log("Agent evaluating if local context is sufficient...");
+            agentLogs.push({ action: 'Context Evaluation', status: 'done', message: 'Evaluating if local context is sufficient to answer the question...' });
             const evalPrompt = `Does the following context contain sufficient information to answer the user's question?
 Context:
 ${contextText || "No context provided."}
@@ -154,8 +158,8 @@ ${contextText || "No context provided."}
 Question: ${searchQuery}
 
 Reply with ONLY the word "YES" or "NO".`;
-            let needsWebSearch = true;
-            if (contextText) {
+            let needsWebSearch = forceWebSearch || false;
+            if (!forceWebSearch && contextText) {
                 try {
                     const evalRes = await fetch('http://localhost:11434/api/generate', {
                         method: 'POST',
@@ -166,16 +170,46 @@ Reply with ONLY the word "YES" or "NO".`;
                     const responseWord = d.response.trim().toUpperCase();
                     needsWebSearch = responseWord.includes('NO');
                     this.logger.log(`Agent evaluation result: ${responseWord} -> Needs Web Search: ${needsWebSearch}`);
+                    agentLogs.push({ action: 'Context Evaluation', status: 'done', message: `LLM decided local context is ${needsWebSearch ? 'insufficient' : 'sufficient'}.` });
                 }
                 catch (e) {
                     this.logger.error("Failed to evaluate context", e);
                 }
             }
+            else if (!contextText) {
+                needsWebSearch = true;
+                agentLogs.push({ action: 'Context Evaluation', status: 'done', message: 'No local context found. Forcing web search.' });
+            }
+            else if (forceWebSearch) {
+                agentLogs.push({ action: 'Context Evaluation', status: 'done', message: 'User explicitly forced a web search.' });
+            }
             if (needsWebSearch) {
                 this.logger.log(`Executing Autonomous Web Search for: "${searchQuery}"`);
+                agentLogs.push({ action: 'Web Search', status: 'done', message: `Searching the Web for "${searchQuery}"` });
                 try {
-                    const searchResults = await (0, duck_duck_scrape_1.search)(searchQuery);
-                    const topResults = searchResults.results.slice(0, 2);
+                    const bingRes = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        }
+                    });
+                    const bingHtml = await bingRes.text();
+                    const $bing = cheerio.load(bingHtml);
+                    const searchResults = [];
+                    $bing('li.b_algo h2 a').each((i, el) => {
+                        const href = $bing(el).attr('href');
+                        if (href && href.includes('u=a1')) {
+                            const b64 = href.split('u=a1')[1].split('&')[0];
+                            try {
+                                const realUrl = Buffer.from(b64, 'base64').toString('utf8');
+                                searchResults.push({ url: realUrl, title: $bing(el).text() });
+                            }
+                            catch (e) { }
+                        }
+                        else if (href && href.startsWith('http')) {
+                            searchResults.push({ url: href, title: $bing(el).text() });
+                        }
+                    });
+                    const topResults = searchResults.slice(0, 3);
                     for (let i = 0; i < topResults.length; i++) {
                         const result = topResults[i];
                         this.logger.log(`Scraping web result: ${result.url}`);
@@ -189,7 +223,8 @@ Reply with ONLY the word "YES" or "NO".`;
                             const text = $('body').text().replace(/\s+/g, ' ').trim();
                             const snippet = text.substring(0, 2000);
                             contextText += `\n\n[Web Search Result ${i + 1}] (${result.url}):\n${snippet}`;
-                            sources.push(`WEB: ${result.title || result.url}`);
+                            sources.push(result.url);
+                            agentLogs.push({ action: 'Web Scrape', status: 'done', message: `Scraped and extracted context from: ${result.url}` });
                             this.logger.log(`Pushing ${result.url} to Capture Queue for permanent indexing...`);
                             this.captureService.create({ type: 'URL', sourceUrl: result.url }, user.userId).catch((e) => {
                                 this.logger.error(`Failed to push web result to capture queue: ${e.message}`);
@@ -197,11 +232,13 @@ Reply with ONLY the word "YES" or "NO".`;
                         }
                         catch (scrapeErr) {
                             this.logger.error(`Failed to scrape ${result.url}`);
+                            agentLogs.push({ action: 'Web Scrape', status: 'error', message: `Failed to scrape ${result.url}` });
                         }
                     }
                 }
                 catch (searchErr) {
-                    this.logger.error("DuckDuckGo search failed", searchErr);
+                    this.logger.error("Web search failed", searchErr);
+                    agentLogs.push({ action: 'Web Search', status: 'error', message: 'Web search failed.' });
                 }
             }
             let historyContext = "";
@@ -213,8 +250,8 @@ You are Synora, an intelligent and friendly personal assistant.
 You have access to the user's personal knowledge graph, and you can also autonomously search the web if needed.
 
 If the user is just saying hello or asking a general conversational question, answer in a friendly, conversational manner.
-If the user is asking a question that requires specific knowledge, answer it using ONLY the provided context below.
-If the context does not contain the answer, politely state that you cannot find the answer.
+If the user is asking a question that requires specific knowledge, try to answer it using the provided context below. 
+If the context does not contain the answer, you may use your own general knowledge to answer, but please mention that you are doing so.
 
 ${historyContext}
 CONTEXT:
@@ -237,9 +274,11 @@ ${query}
                 throw new Error('Failed to generate answer from Ollama');
             }
             const generationData = await generateResponse.json();
+            agentLogs.push({ action: 'Response Generation', status: 'done', message: 'Generated final answer using Llama 3.2' });
             return {
                 response: generationData.response,
-                sources: sources
+                sources: sources,
+                agentLogs: agentLogs
             };
         }
         catch (error) {
@@ -253,11 +292,14 @@ __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)('query')),
     __param(1, (0, common_1.Body)('history')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __param(3, (0, common_1.Body)('forceWebSearch')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Array]),
+    __metadata("design:paramtypes", [String, Array, Object, Boolean]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "chat", null);
 exports.ChatController = ChatController = ChatController_1 = __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('chat'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         capture_service_1.CaptureService])

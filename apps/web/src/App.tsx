@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX, Volume2 } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 
@@ -9,7 +9,7 @@ type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER';
 interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
 interface Artifact { id: string; title?: string; sourceUrl: string; type: string; status: string; content?: string; summary?: string; createdAt: string; topics: {id: string, name: string}[] }
-interface ChatMessage { role: 'user' | 'assistant'; content: string; sources?: string[]; }
+interface ChatMessage { role: 'user' | 'assistant'; content: string; sources?: string[]; agentLogs?: { action: string; status: 'pending'|'done'|'error'; message: string }[]; }
 
 function App() {
   // Authentication State
@@ -105,6 +105,7 @@ function App() {
   // Chat State
   const [chatQuery, setChatQuery] = useState('');
   const [isChatting, setIsChatting] = useState(false);
+  const [forceWebSearch, setForceWebSearch] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
     role: 'assistant',
     content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
@@ -114,6 +115,7 @@ function App() {
   // Voice State
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
@@ -409,7 +411,7 @@ function App() {
       const response = await fetchWithAuth('http://localhost:3000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage, history: chatHistory }),
+        body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch }),
       });
 
       if (!response.ok) throw new Error('Failed to fetch chat response');
@@ -418,11 +420,14 @@ function App() {
       setChatHistory(prev => [...prev, { 
         role: 'assistant', 
         content: data.response,
-        sources: data.sources 
+        sources: data.sources,
+        agentLogs: data.agentLogs
       }]);
       
-      // Auto-speak response
-      speakText(data.response);
+      // Auto-speak response if enabled
+      if (isVoiceEnabled) {
+        speakText(data.response);
+      }
       
     } catch (err) {
       console.error(err);
@@ -976,6 +981,32 @@ function App() {
                     }`}>
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                       
+                      {msg.agentLogs && msg.agentLogs.length > 0 && (
+                        <div className="mt-4 bg-synora-bg border border-synora-border rounded-xl overflow-hidden">
+                          <details className="group">
+                            <summary className="flex items-center gap-2 p-3 cursor-pointer text-xs font-bold text-synora-accent hover:bg-synora-surface/50 transition-colors list-none select-none">
+                              <BrainCircuit className="w-4 h-4" /> Agentic Workflow ({msg.agentLogs.length} steps)
+                              <span className="ml-auto transform group-open:rotate-180 transition-transform">▼</span>
+                            </summary>
+                            <div className="p-3 pt-0 border-t border-synora-border space-y-2">
+                              {msg.agentLogs.map((log, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm">
+                                  {log.status === 'done' ? (
+                                    <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                  ) : (
+                                    <X className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                                  )}
+                                  <div>
+                                    <p className="font-bold text-xs text-synora-text-secondary">{log.action}</p>
+                                    <p className="text-white/90 leading-tight mt-0.5">{log.message}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
+                      )}
+
                       {msg.sources && msg.sources.length > 0 && (
                         <div className="mt-4 pt-4 border-t border-synora-border/50 flex flex-wrap gap-2">
                           <span className="text-xs font-bold uppercase tracking-wider text-synora-text-secondary w-full">Sources Cited:</span>
@@ -994,7 +1025,7 @@ function App() {
                   <div className="flex justify-start animate-fade-in">
                     <div className="bg-synora-surface border border-synora-border rounded-2xl rounded-tl-sm p-4 flex items-center gap-3">
                       <Loader2 className="w-5 h-5 animate-spin text-synora-accent" />
-                      <span className="text-synora-text-secondary animate-pulse">Searching your knowledge graph...</span>
+                      <span className="text-synora-text-secondary animate-pulse">Synora is thinking...</span>
                     </div>
                   </div>
                 )}
@@ -1002,6 +1033,28 @@ function App() {
               </div>
 
               <div className="p-4 bg-synora-surface border-t border-synora-border shrink-0">
+                <div className="flex items-center justify-between mb-2 px-2">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-xs text-synora-text-secondary cursor-pointer hover:text-white transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={forceWebSearch} 
+                        onChange={(e) => setForceWebSearch(e.target.checked)}
+                        className="accent-synora-accent rounded"
+                      />
+                      <Compass className="w-3 h-3" /> Force Web Search
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-synora-text-secondary cursor-pointer hover:text-white transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={isVoiceEnabled} 
+                        onChange={(e) => setIsVoiceEnabled(e.target.checked)}
+                        className="accent-synora-accent rounded"
+                      />
+                      {isVoiceEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />} Voice Answers
+                    </label>
+                  </div>
+                </div>
                 <form onSubmit={handleChatSubmit} className="relative">
                   <input
                     type="text"
