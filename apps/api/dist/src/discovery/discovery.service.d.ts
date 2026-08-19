@@ -30,4 +30,18 @@ export declare class DiscoveryService {
         updatedAt: Date;
         userId: string;
     }>;
+    getTasteProfile(userId: string): Promise<{
+        profile: any;
+    }>;
+    diveDeeper(userId: string, sourceRecommendationId: string): Promise<{
+        id: string;
+        title: string;
+        type: string;
+        status: string;
+        createdAt: Date;
+        userId: string;
+        description: string;
+        reasoning: string;
+        imageUrl: string | null;
+    }[]>;
 }

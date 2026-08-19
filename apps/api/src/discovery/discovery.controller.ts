@@ -17,4 +17,14 @@ export class DiscoveryController {
   async exploreRecommendation(@Param('id') id: string, @CurrentUser() user: any) {
     return this.discoveryService.exploreRecommendation(user.userId, id);
   }
+
+  @Get('taste-profile')
+  async getTasteProfile(@CurrentUser() user: any) {
+    return this.discoveryService.getTasteProfile(user.userId);
+  }
+
+  @Post(':id/dive-deeper')
+  async diveDeeper(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.discoveryService.diveDeeper(user.userId, id);
+  }
 }

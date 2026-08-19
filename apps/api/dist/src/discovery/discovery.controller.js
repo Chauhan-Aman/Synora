@@ -28,6 +28,12 @@ let DiscoveryController = class DiscoveryController {
     async exploreRecommendation(id, user) {
         return this.discoveryService.exploreRecommendation(user.userId, id);
     }
+    async getTasteProfile(user) {
+        return this.discoveryService.getTasteProfile(user.userId);
+    }
+    async diveDeeper(id, user) {
+        return this.discoveryService.diveDeeper(user.userId, id);
+    }
 };
 exports.DiscoveryController = DiscoveryController;
 __decorate([
@@ -45,6 +51,21 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], DiscoveryController.prototype, "exploreRecommendation", null);
+__decorate([
+    (0, common_1.Get)('taste-profile'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DiscoveryController.prototype, "getTasteProfile", null);
+__decorate([
+    (0, common_1.Post)(':id/dive-deeper'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], DiscoveryController.prototype, "diveDeeper", null);
 exports.DiscoveryController = DiscoveryController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('discovery'),

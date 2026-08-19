@@ -24,4 +24,18 @@ export declare class DiscoveryController {
         updatedAt: Date;
         userId: string;
     }>;
+    getTasteProfile(user: any): Promise<{
+        profile: any;
+    }>;
+    diveDeeper(id: string, user: any): Promise<{
+        id: string;
+        title: string;
+        type: string;
+        status: string;
+        createdAt: Date;
+        userId: string;
+        description: string;
+        reasoning: string;
+        imageUrl: string | null;
+    }[]>;
 }

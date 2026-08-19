@@ -128,8 +128,11 @@ function App() {
 
   // Discover State
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [nestedRecommendations, setNestedRecommendations] = useState<Record<string, any[]>>({});
+  const [tasteProfile, setTasteProfile] = useState<string | null>(null);
   const [isLoadingDiscover, setIsLoadingDiscover] = useState(false);
   const [exploringId, setExploringId] = useState<string | null>(null);
+  const [divingId, setDivingId] = useState<string | null>(null);
 
   // Create State
   const [draftText, setDraftText] = useState("");
@@ -344,9 +347,12 @@ function App() {
   const fetchDiscover = async () => {
     setIsLoadingDiscover(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3000/discovery/feed');
-      if (!res.ok) throw new Error('Failed to fetch discovery feed');
-      setRecommendations(await res.json());
+      const [feedRes, profileRes] = await Promise.all([
+        fetchWithAuth('http://localhost:3000/discovery/feed'),
+        fetchWithAuth('http://localhost:3000/discovery/taste-profile')
+      ]);
+      if (feedRes.ok) setRecommendations(await feedRes.json());
+      if (profileRes.ok) setTasteProfile((await profileRes.json()).profile);
     } catch (err) {
       console.error(err);
     } finally {
@@ -365,6 +371,23 @@ function App() {
       console.error(err);
     } finally {
       setExploringId(null);
+    }
+  };
+
+  const handleDiveDeeper = async (id: string) => {
+    setDivingId(id);
+    try {
+      const res = await fetchWithAuth(`http://localhost:3000/discovery/${id}/dive-deeper`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to dive deeper');
+      const data = await res.json();
+      setNestedRecommendations(prev => ({
+        ...prev,
+        [id]: data
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDivingId(null);
     }
   };
 
@@ -1214,6 +1237,13 @@ function App() {
                 </button>
               </div>
 
+              {tasteProfile && (
+                <div className="mb-8 p-6 glass-panel rounded-2xl bg-gradient-to-r from-synora-accent/10 to-transparent border-l-4 border-l-synora-accent shrink-0 shadow-lg">
+                  <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-synora-accent"/> Your Taste Profile</h3>
+                  <p className="text-synora-text-primary leading-relaxed">{tasteProfile}</p>
+                </div>
+              )}
+
               {isLoadingDiscover && recommendations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl p-12">
                   <Sparkles className="w-12 h-12 animate-pulse text-synora-accent mb-4" />
@@ -1262,19 +1292,87 @@ function App() {
                             <p className="drop-shadow-sm">{rec.reasoning}</p>
                           </div>
                           
-                          <button 
-                            onClick={() => handleExplore(rec.id)}
-                            disabled={exploringId === rec.id}
-                            className="w-full py-3 bg-synora-accent/90 hover:bg-synora-accent backdrop-blur-md text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-synora-accent/50 flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                            {exploringId === rec.id ? (
-                              <><Loader2 className="w-4 h-4 animate-spin" /> Fetching Article...</>
-                            ) : (
-                              <><Sparkles className="w-4 h-4" /> Read Article</>
-                            )}
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleExplore(rec.id)}
+                              disabled={exploringId === rec.id}
+                              className="flex-1 py-3 bg-synora-accent/90 hover:bg-synora-accent backdrop-blur-md text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-synora-accent/50 flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+                            >
+                              {exploringId === rec.id ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Fetching...</>
+                              ) : (
+                                <><Sparkles className="w-4 h-4" /> Read</>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleDiveDeeper(rec.id)}
+                              disabled={divingId === rec.id}
+                              className="flex-1 py-3 bg-synora-surface/80 hover:bg-synora-surface border border-synora-border backdrop-blur-md text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
+                            >
+                              {divingId === rec.id ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Diving...</>
+                              ) : (
+                                <><Network className="w-4 h-4" /> Dive Deeper</>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Nested Rabbit Hole Recommendations */}
+                      {nestedRecommendations[rec.id] && (
+                        <div className="ml-8 mt-4 pl-4 border-l-2 border-synora-accent/30 flex flex-col gap-4 animate-fade-in">
+                          {nestedRecommendations[rec.id].map(nested => (
+                            <div key={nested.id} className="glass-panel p-4 rounded-xl border border-synora-border flex flex-col gap-2 relative bg-synora-bg/50">
+                              <div className="absolute -left-6 top-6 w-4 h-0.5 bg-synora-accent/30" />
+                              <div className="flex items-start gap-3">
+                                {nested.imageUrl ? (
+                                  <img src={nested.imageUrl} alt={nested.title} className="w-16 h-16 rounded-lg object-cover opacity-80" />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-lg bg-synora-surface/80 flex items-center justify-center"><Box className="w-6 h-6 text-synora-accent opacity-50"/></div>
+                                )}
+                                <div className="flex-1">
+                                  <h4 className="font-bold text-white text-sm line-clamp-1">{nested.title}</h4>
+                                  <p className="text-synora-text-secondary text-xs line-clamp-2 mt-1">{nested.description}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-2">
+                                <button 
+                                  onClick={() => handleExplore(nested.id)}
+                                  disabled={exploringId === nested.id}
+                                  className="flex-1 py-2 bg-synora-accent/80 hover:bg-synora-accent text-white rounded-lg transition-all text-xs font-bold flex items-center justify-center gap-1 disabled:opacity-50"
+                                >
+                                  {exploringId === nested.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Read
+                                </button>
+                                <button
+                                  onClick={() => handleDiveDeeper(nested.id)}
+                                  disabled={divingId === nested.id}
+                                  className="flex-1 py-2 bg-synora-surface border border-synora-border hover:bg-synora-surface/80 text-white rounded-lg transition-all text-xs font-bold flex items-center justify-center gap-1 disabled:opacity-50"
+                                >
+                                  {divingId === nested.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Network className="w-3 h-3" />} Dive
+                                </button>
+                              </div>
+
+                              {nestedRecommendations[nested.id] && (
+                                <div className="ml-4 mt-3 pl-3 border-l-2 border-synora-accent/30 flex flex-col gap-3">
+                                  {nestedRecommendations[nested.id].map(deepNested => (
+                                    <div key={deepNested.id} className="p-3 bg-synora-surface rounded-lg border border-synora-border text-xs flex flex-col gap-2">
+                                      <h5 className="font-bold text-white">{deepNested.title}</h5>
+                                      <button 
+                                        onClick={() => handleExplore(deepNested.id)}
+                                        disabled={exploringId === deepNested.id}
+                                        className="py-1.5 bg-synora-accent text-white rounded w-full transition-all flex items-center justify-center gap-1"
+                                      >
+                                        <Sparkles className="w-3 h-3" /> Read
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
