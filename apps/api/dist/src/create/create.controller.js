@@ -26,12 +26,12 @@ let CreateController = class CreateController {
         const context = await this.createService.fetchContext(draft, user.userId);
         return { context };
     }
-    async generateParagraph(draft, context, user) {
-        const nextParagraph = await this.createService.generateParagraph(draft, context);
+    async generateParagraph(draft, context, user, model) {
+        const nextParagraph = await this.createService.generateParagraph(draft, context, model);
         return { nextParagraph };
     }
-    async rewriteParagraph(draft, suggestedParagraph, instructions, context, user) {
-        const nextParagraph = await this.createService.rewriteParagraph(draft, suggestedParagraph, instructions, context);
+    async rewriteParagraph(draft, suggestedParagraph, instructions, context, user, model) {
+        const nextParagraph = await this.createService.rewriteParagraph(draft, suggestedParagraph, instructions, context, model);
         return { nextParagraph };
     }
 };
@@ -49,8 +49,9 @@ __decorate([
     __param(0, (0, common_1.Body)('draft')),
     __param(1, (0, common_1.Body)('context')),
     __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __param(3, (0, common_1.Body)('model')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Array, Object]),
+    __metadata("design:paramtypes", [String, Array, Object, String]),
     __metadata("design:returntype", Promise)
 ], CreateController.prototype, "generateParagraph", null);
 __decorate([
@@ -60,8 +61,9 @@ __decorate([
     __param(2, (0, common_1.Body)('instructions')),
     __param(3, (0, common_1.Body)('context')),
     __param(4, (0, current_user_decorator_1.CurrentUser)()),
+    __param(5, (0, common_1.Body)('model')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, Array, Object]),
+    __metadata("design:paramtypes", [String, String, String, Array, Object, String]),
     __metadata("design:returntype", Promise)
 ], CreateController.prototype, "rewriteParagraph", null);
 exports.CreateController = CreateController = __decorate([

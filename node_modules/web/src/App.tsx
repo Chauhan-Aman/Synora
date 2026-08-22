@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX, Volume2 } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List as ListIcon, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX, Volume2, Settings } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
+import { RichTextEditor } from './components/RichTextEditor';
 
 type InputType = 'URL' | 'TEXT' | 'FILE' | 'VOICE';
-type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER' | 'CREATE';
+type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER' | 'CREATE' | 'SETTINGS';
 
 interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
@@ -142,6 +143,11 @@ function App() {
   const [revisionPrompt, setRevisionPrompt] = useState<string>("");
   const [isRevising, setIsRevising] = useState(false);
   const draftTimeoutRef = useRef<any>(null);
+  const [modelConfig, setModelConfig] = useState(localStorage.getItem('synora_model') || 'llama3.2');
+
+  useEffect(() => {
+    localStorage.setItem('synora_model', modelConfig);
+  }, [modelConfig]);
 
   useEffect(() => {
     if (token && activeTab === 'KNOWLEDGE') fetchKnowledge();
@@ -440,6 +446,7 @@ function App() {
           body: JSON.stringify({
             type: inputType === 'VOICE' ? 'TEXT' : inputType,
             [inputType === 'URL' ? 'sourceUrl' : 'content']: inputValue,
+            model: modelConfig
           }),
         });
       }
@@ -471,7 +478,7 @@ function App() {
       const response = await fetchWithAuth('http://localhost:3000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch }),
+        body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig }),
       });
 
       if (!response.ok) throw new Error('Failed to fetch chat response');
@@ -507,7 +514,7 @@ function App() {
       const res = await fetchWithAuth('http://localhost:3000/create/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft: draftText, context: draftContext })
+        body: JSON.stringify({ draft: draftText, context: draftContext, model: modelConfig })
       });
       const data = await res.json();
       if (data.nextParagraph) {
@@ -538,7 +545,7 @@ function App() {
       const res = await fetchWithAuth('http://localhost:3000/create/rewrite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft: draftText, suggestedParagraph, instructions: revisionPrompt, context: draftContext })
+        body: JSON.stringify({ draft: draftText, suggestedParagraph, instructions: revisionPrompt, context: draftContext, model: modelConfig })
       });
       const data = await res.json();
       if (data.nextParagraph) {
@@ -680,24 +687,25 @@ function App() {
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Synora Engine</h1>
           
-          <div className="flex bg-synora-surface/50 backdrop-blur-md p-1.5 rounded-2xl border border-synora-border shadow-xl w-full mx-auto max-w-3xl">
-            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE'] as Tab[]).map((tab) => (
+          <div className="flex bg-synora-surface/50 backdrop-blur-md p-1.5 rounded-2xl border border-synora-border shadow-xl w-full mx-auto max-w-4xl overflow-x-auto custom-scrollbar">
+            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE', 'SETTINGS'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all duration-300 ${
+                className={`flex-1 flex min-w-[100px] items-center justify-center gap-2 py-3 px-2 rounded-xl font-medium transition-all duration-300 ${
                   activeTab === tab
                     ? 'bg-synora-bg text-synora-text-primary shadow-md border border-synora-border/50 scale-100'
                     : 'text-synora-text-secondary hover:text-synora-text-primary scale-95'
                 }`}
               >
-                {tab === 'CAPTURE' && <Link className="w-4 h-4" />}
-                {tab === 'KNOWLEDGE' && <BrainCircuit className="w-4 h-4" />}
-                {tab === 'LEARN' && <GraduationCap className="w-4 h-4" />}
-                {tab === 'CHAT' && <MessageSquare className="w-4 h-4" />}
-                {tab === 'DISCOVER' && <Compass className="w-4 h-4" />}
-                {tab === 'CREATE' && <FileText className="w-4 h-4" />}
-                {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                {tab === 'CAPTURE' && <Link className="w-4 h-4 shrink-0" />}
+                {tab === 'KNOWLEDGE' && <BrainCircuit className="w-4 h-4 shrink-0" />}
+                {tab === 'LEARN' && <GraduationCap className="w-4 h-4 shrink-0" />}
+                {tab === 'CHAT' && <MessageSquare className="w-4 h-4 shrink-0" />}
+                {tab === 'DISCOVER' && <Compass className="w-4 h-4 shrink-0" />}
+                {tab === 'CREATE' && <FileText className="w-4 h-4 shrink-0" />}
+                {tab === 'SETTINGS' && <Settings className="w-4 h-4 shrink-0" />}
+                <span className="truncate">{tab.charAt(0) + tab.slice(1).toLowerCase()}</span>
               </button>
             ))}
           </div>
@@ -1058,8 +1066,17 @@ function App() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center h-full max-h-[600px] w-full">
-                  <div className="w-full flex justify-between items-center mb-6 px-2">
-                    <span className="text-synora-text-secondary font-medium">Card {currentCardIndex + 1} of {flashcards.length}</span>
+                  <div className="w-full flex flex-col gap-2 mb-6 px-2">
+                    <div className="w-full flex justify-between items-center">
+                      <span className="text-synora-text-secondary font-medium text-sm">Review Progress</span>
+                      <span className="text-synora-accent font-bold">{currentCardIndex + 1} / {flashcards.length}</span>
+                    </div>
+                    <div className="w-full bg-synora-surface border border-synora-border rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-synora-accent h-full rounded-full transition-all duration-500 ease-out" 
+                        style={{ width: `${((currentCardIndex) / flashcards.length) * 100}%` }}
+                      />
+                    </div>
                   </div>
                   
                   <div 
@@ -1428,11 +1445,10 @@ function App() {
                   </button>
                 </div>
                 
-                <textarea
-                  value={draftText}
-                  onChange={(e) => setDraftText(e.target.value)}
-                  placeholder="Start writing your essay, blog post, or ideas here...\n\nAs you type, Synora will automatically surface relevant notes and articles from your knowledge graph in the sidebar to the right."
-                  className="flex-1 bg-synora-bg/30 border border-synora-border/50 rounded-xl p-4 text-synora-text-primary resize-none outline-none focus:border-synora-accent/50 transition-colors placeholder:text-synora-text-secondary/50 font-mono text-sm leading-relaxed"
+                <RichTextEditor 
+                  content={draftText} 
+                  onChange={setDraftText} 
+                  placeholder="Start writing your essay, blog post, or ideas here...\n\nAs you type, Synora will automatically surface relevant notes and articles from your knowledge graph in the sidebar to the right." 
                 />
 
                 {/* SUGGESTED DRAFT PANEL */}
@@ -1513,6 +1529,55 @@ function App() {
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* SETTINGS TAB */}
+          {activeTab === 'SETTINGS' && (
+            <div className="max-w-3xl w-full mx-auto glass-panel p-6 md:p-8 mt-8 shrink-0">
+              <div className="flex items-center gap-3 mb-8 border-b border-synora-border pb-4">
+                <Settings className="w-6 h-6 text-synora-accent" />
+                <h2 className="text-2xl font-bold">Settings & Configuration</h2>
+              </div>
+
+              <div className="space-y-8">
+                <section>
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <BrainCircuit className="w-5 h-5 text-synora-accent" /> Local AI Model
+                  </h3>
+                  <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5">
+                    <p className="text-sm text-synora-text-secondary mb-4">
+                      Select which Ollama model Synora should use for knowledge extraction, charting, and drafting. 
+                      Ensure you have run <code className="bg-synora-bg px-1.5 py-0.5 rounded text-synora-accent">ollama pull &lt;model&gt;</code> before selecting it here.
+                    </p>
+                    <select 
+                      value={modelConfig} 
+                      onChange={(e) => setModelConfig(e.target.value)}
+                      className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm"
+                    >
+                      <option value="llama3.2">llama3.2 (Default - Fast & Efficient)</option>
+                      <option value="llama3.1">llama3.1 (Higher accuracy)</option>
+                      <option value="mistral">mistral (Alternative)</option>
+                      <option value="phi3">phi3 (Lightweight)</option>
+                    </select>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Key className="w-5 h-5 text-synora-accent" /> Account
+                  </h3>
+                  <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-white">Logged in</p>
+                      <p className="text-sm text-synora-text-secondary">Your knowledge graph is synced and secure.</p>
+                    </div>
+                    <button onClick={handleLogout} className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium">
+                      Log Out
+                    </button>
+                  </div>
+                </section>
               </div>
             </div>
           )}

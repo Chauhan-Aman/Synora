@@ -38,6 +38,7 @@ let CaptureService = CaptureService_1 = class CaptureService {
         });
         await this.captureQueue.add('process-capture', {
             artifactId: artifact.id,
+            model: createCaptureDto.model
         });
         this.logger.log(`Received capture and queued for processing: ${artifact.id}`);
         return {

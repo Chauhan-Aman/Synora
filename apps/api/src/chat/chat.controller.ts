@@ -21,8 +21,10 @@ export class ChatController {
     @Body('query') query: string, 
     @Body('history') history: any[], 
     @CurrentUser() user: any,
-    @Body('forceWebSearch') forceWebSearch?: boolean
+    @Body('forceWebSearch') forceWebSearch?: boolean,
+    @Body('model') modelParam?: string
   ) {
+    const targetModel = modelParam || 'llama3.2';
     if (!query) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
@@ -46,7 +48,7 @@ Rewritten Query:`;
           const rewriteRes = await fetch('http://localhost:11434/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'llama3.2', prompt: rewritePrompt, stream: false }),
+            body: JSON.stringify({ model: targetModel, prompt: rewritePrompt, stream: false }),
           });
           if (rewriteRes.ok) {
             const d = await rewriteRes.json();
@@ -143,7 +145,7 @@ Reply with ONLY the word "YES" or "NO".`;
           const evalRes = await fetch('http://localhost:11434/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'llama3.2', prompt: evalPrompt, stream: false }),
+            body: JSON.stringify({ model: targetModel, prompt: evalPrompt, stream: false }),
           });
           const d = await evalRes.json();
           const responseWord = d.response.trim().toUpperCase();
@@ -257,7 +259,7 @@ ${query}
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: targetModel,
           prompt: prompt,
           stream: false,
         }),
@@ -268,7 +270,7 @@ ${query}
       }
 
       const generationData = await generateResponse.json();
-      agentLogs.push({ action: 'Response Generation', status: 'done', message: 'Generated final answer using Llama 3.2' });
+      agentLogs.push({ action: 'Response Generation', status: 'done', message: `Generated final answer using ${targetModel}` });
       
       return { 
         response: generationData.response,

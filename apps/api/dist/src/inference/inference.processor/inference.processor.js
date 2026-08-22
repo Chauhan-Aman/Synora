@@ -68,8 +68,9 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
         return chunks;
     }
     async process(job) {
-        const { artifactId } = job.data;
-        this.logger.log(`Processing job ${job.id} for artifact ${artifactId}`);
+        const { artifactId, model } = job.data;
+        const targetModel = model || this.OLLAMA_MODEL;
+        this.logger.log(`Processing job ${job.id} for artifact ${artifactId} using model ${targetModel}`);
         const artifact = await this.prisma.artifact.findUnique({
             where: { id: artifactId },
         });
@@ -132,7 +133,7 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                     data: { content: contentToProcess.substring(0, 5000) },
                 });
             }
-            this.logger.log(`Sending to Ollama (${this.OLLAMA_MODEL}) for extraction...`);
+            this.logger.log(`Sending to Ollama (${targetModel}) for extraction...`);
             const prompt = `
         You are a highly capable AI specialized in extracting structured knowledge graphs from text.
         Extract the most important topics, named entities, a short summary, and 3 Question & Answer flashcards to test the user's knowledge on this text.
@@ -159,7 +160,7 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        model: this.OLLAMA_MODEL,
+                        model: targetModel,
                         prompt: prompt,
                         stream: false,
                         format: 'json'

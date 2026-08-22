@@ -28,6 +28,7 @@ export class CaptureService {
     // 2. Dispatch to Queue for async processing
     await this.captureQueue.add('process-capture', {
       artifactId: artifact.id,
+      model: createCaptureDto.model
     });
 
     this.logger.log(`Received capture and queued for processing: ${artifact.id}`);

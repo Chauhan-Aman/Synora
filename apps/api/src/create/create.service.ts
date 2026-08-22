@@ -53,7 +53,7 @@ export class CreateService {
     }
   }
 
-  async generateParagraph(draftText: string, contextArtifacts: any[]): Promise<string> {
+  async generateParagraph(draftText: string, contextArtifacts: any[], model?: string): Promise<string> {
     try {
       const contextString = contextArtifacts.map(a => `[Title: ${a.title || 'Unknown'}]\n${a.summary || ''}`).join('\n\n');
 
@@ -77,7 +77,7 @@ ${draftText}
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: model || 'llama3.2',
           prompt,
           stream: false
         })
@@ -95,7 +95,7 @@ ${draftText}
     }
   }
 
-  async rewriteParagraph(draftText: string, suggestedParagraph: string, instructions: string, contextArtifacts: any[]): Promise<string> {
+  async rewriteParagraph(draftText: string, suggestedParagraph: string, instructions: string, contextArtifacts: any[], model?: string): Promise<string> {
     try {
       const contextString = contextArtifacts.map(a => `[Title: ${a.title || 'Unknown'}]\n${a.summary || ''}`).join('\n\n');
 
@@ -125,7 +125,7 @@ ${suggestedParagraph}
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: model || 'llama3.2',
           prompt,
           stream: false
         })

@@ -61,7 +61,8 @@ let ChatController = ChatController_1 = class ChatController {
         this.prisma = prisma;
         this.captureService = captureService;
     }
-    async chat(query, history, user, forceWebSearch) {
+    async chat(query, history, user, forceWebSearch, modelParam) {
+        const targetModel = modelParam || 'llama3.2';
         if (!query) {
             throw new common_1.HttpException('Query is required', common_1.HttpStatus.BAD_REQUEST);
         }
@@ -82,7 +83,7 @@ Rewritten Query:`;
                     const rewriteRes = await fetch('http://localhost:11434/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: 'llama3.2', prompt: rewritePrompt, stream: false }),
+                        body: JSON.stringify({ model: targetModel, prompt: rewritePrompt, stream: false }),
                     });
                     if (rewriteRes.ok) {
                         const d = await rewriteRes.json();
@@ -164,7 +165,7 @@ Reply with ONLY the word "YES" or "NO".`;
                     const evalRes = await fetch('http://localhost:11434/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: 'llama3.2', prompt: evalPrompt, stream: false }),
+                        body: JSON.stringify({ model: targetModel, prompt: evalPrompt, stream: false }),
                     });
                     const d = await evalRes.json();
                     const responseWord = d.response.trim().toUpperCase();
@@ -265,7 +266,7 @@ ${query}
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: 'llama3.2',
+                    model: targetModel,
                     prompt: prompt,
                     stream: false,
                 }),
@@ -274,7 +275,7 @@ ${query}
                 throw new Error('Failed to generate answer from Ollama');
             }
             const generationData = await generateResponse.json();
-            agentLogs.push({ action: 'Response Generation', status: 'done', message: 'Generated final answer using Llama 3.2' });
+            agentLogs.push({ action: 'Response Generation', status: 'done', message: `Generated final answer using ${targetModel}` });
             return {
                 response: generationData.response,
                 sources: sources,
@@ -294,8 +295,9 @@ __decorate([
     __param(1, (0, common_1.Body)('history')),
     __param(2, (0, current_user_decorator_1.CurrentUser)()),
     __param(3, (0, common_1.Body)('forceWebSearch')),
+    __param(4, (0, common_1.Body)('model')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Array, Object, Boolean]),
+    __metadata("design:paramtypes", [String, Array, Object, Boolean, String]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "chat", null);
 exports.ChatController = ChatController = ChatController_1 = __decorate([

@@ -4,6 +4,6 @@ export declare class CreateService {
     private readonly logger;
     constructor(prisma: PrismaService);
     fetchContext(draftText: string, userId: string): Promise<any[]>;
-    generateParagraph(draftText: string, contextArtifacts: any[]): Promise<string>;
-    rewriteParagraph(draftText: string, suggestedParagraph: string, instructions: string, contextArtifacts: any[]): Promise<string>;
+    generateParagraph(draftText: string, contextArtifacts: any[], model?: string): Promise<string>;
+    rewriteParagraph(draftText: string, suggestedParagraph: string, instructions: string, contextArtifacts: any[], model?: string): Promise<string>;
 }

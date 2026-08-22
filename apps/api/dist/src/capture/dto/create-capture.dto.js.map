@@ -1,1 +1,1 @@
-{"version":3,"file":"create-capture.dto.js","sourceRoot":"","sources":["../../../../src/capture/dto/create-capture.dto.ts"],"names":[],"mappings":";;;AAAA,MAAa,gBAAgB;IAC3B,IAAI,CAAS;IACb,SAAS,CAAU;IACnB,OAAO,CAAU;CAClB;AAJD,4CAIC"}
+{"version":3,"file":"create-capture.dto.js","sourceRoot":"","sources":["../../../../src/capture/dto/create-capture.dto.ts"],"names":[],"mappings":";;;AAAA,MAAa,gBAAgB;IAC3B,IAAI,CAAS;IACb,SAAS,CAAU;IACnB,OAAO,CAAU;IACjB,KAAK,CAAU;CAChB;AALD,4CAKC"}

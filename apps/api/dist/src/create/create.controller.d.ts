@@ -5,10 +5,10 @@ export declare class CreateController {
     fetchContext(draft: string, user: any): Promise<{
         context: any[];
     }>;
-    generateParagraph(draft: string, context: any[], user: any): Promise<{
+    generateParagraph(draft: string, context: any[], user: any, model?: string): Promise<{
         nextParagraph: string;
     }>;
-    rewriteParagraph(draft: string, suggestedParagraph: string, instructions: string, context: any[], user: any): Promise<{
+    rewriteParagraph(draft: string, suggestedParagraph: string, instructions: string, context: any[], user: any, model?: string): Promise<{
         nextParagraph: string;
     }>;
 }

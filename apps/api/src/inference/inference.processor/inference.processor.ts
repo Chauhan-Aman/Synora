@@ -28,8 +28,9 @@ export class InferenceProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    const { artifactId } = job.data;
-    this.logger.log(`Processing job ${job.id} for artifact ${artifactId}`);
+    const { artifactId, model } = job.data;
+    const targetModel = model || this.OLLAMA_MODEL;
+    this.logger.log(`Processing job ${job.id} for artifact ${artifactId} using model ${targetModel}`);
 
     const artifact = await this.prisma.artifact.findUnique({
       where: { id: artifactId },
@@ -102,7 +103,7 @@ export class InferenceProcessor extends WorkerHost {
         });
       }
 
-      this.logger.log(`Sending to Ollama (${this.OLLAMA_MODEL}) for extraction...`);
+      this.logger.log(`Sending to Ollama (${targetModel}) for extraction...`);
 
       const prompt = `
         You are a highly capable AI specialized in extracting structured knowledge graphs from text.
@@ -132,7 +133,7 @@ export class InferenceProcessor extends WorkerHost {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: this.OLLAMA_MODEL,
+            model: targetModel,
             prompt: prompt,
             stream: false,
             format: 'json'

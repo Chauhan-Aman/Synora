@@ -58,7 +58,7 @@ let CreateService = CreateService_1 = class CreateService {
             return [];
         }
     }
-    async generateParagraph(draftText, contextArtifacts) {
+    async generateParagraph(draftText, contextArtifacts, model) {
         try {
             const contextString = contextArtifacts.map(a => `[Title: ${a.title || 'Unknown'}]\n${a.summary || ''}`).join('\n\n');
             const prompt = `
@@ -80,7 +80,7 @@ ${draftText}
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: 'llama3.2',
+                    model: model || 'llama3.2',
                     prompt,
                     stream: false
                 })
@@ -96,7 +96,7 @@ ${draftText}
             return "*(Failed to generate paragraph. Please ensure Ollama is running and try again.)*";
         }
     }
-    async rewriteParagraph(draftText, suggestedParagraph, instructions, contextArtifacts) {
+    async rewriteParagraph(draftText, suggestedParagraph, instructions, contextArtifacts, model) {
         try {
             const contextString = contextArtifacts.map(a => `[Title: ${a.title || 'Unknown'}]\n${a.summary || ''}`).join('\n\n');
             const prompt = `
@@ -124,7 +124,7 @@ ${suggestedParagraph}
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: 'llama3.2',
+                    model: model || 'llama3.2',
                     prompt,
                     stream: false
                 })

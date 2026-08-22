@@ -21,9 +21,10 @@ export class CreateController {
   async generateParagraph(
     @Body('draft') draft: string,
     @Body('context') context: any[],
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
+    @Body('model') model?: string
   ) {
-    const nextParagraph = await this.createService.generateParagraph(draft, context);
+    const nextParagraph = await this.createService.generateParagraph(draft, context, model);
     return { nextParagraph };
   }
 
@@ -33,9 +34,10 @@ export class CreateController {
     @Body('suggestedParagraph') suggestedParagraph: string,
     @Body('instructions') instructions: string,
     @Body('context') context: any[],
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
+    @Body('model') model?: string
   ) {
-    const nextParagraph = await this.createService.rewriteParagraph(draft, suggestedParagraph, instructions, context);
+    const nextParagraph = await this.createService.rewriteParagraph(draft, suggestedParagraph, instructions, context, model);
     return { nextParagraph };
   }
 }

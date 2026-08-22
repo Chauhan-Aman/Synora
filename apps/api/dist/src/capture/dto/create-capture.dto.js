@@ -5,6 +5,7 @@ class CreateCaptureDto {
     type;
     sourceUrl;
     content;
+    model;
 }
 exports.CreateCaptureDto = CreateCaptureDto;
 //# sourceMappingURL=create-capture.dto.js.map
