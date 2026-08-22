@@ -4,6 +4,23 @@ import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error("React Error:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', background: '#220000', color: '#ffaaaa', minHeight: '100vh', fontFamily: 'monospace' }}>
+          <h1>React Crashed!</h1>
+          <pre>{this.state.error?.toString()}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 type InputType = 'URL' | 'TEXT' | 'FILE' | 'VOICE';
 type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER' | 'CREATE' | 'SETTINGS';
 
@@ -22,6 +39,7 @@ function App() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const [activeTab, setActiveTab] = useState<Tab>('CAPTURE');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Capture State
   const [inputType, setInputType] = useState<InputType>('URL');
@@ -324,10 +342,20 @@ function App() {
         fetchWithAuth('http://localhost:3000/knowledge/graph'),
         fetchWithAuth('http://localhost:3000/knowledge/artifacts')
       ]);
-      setTopics(await topicsRes.json());
-      setEntities(await entitiesRes.json());
-      setGraphData(await graphRes.json());
-      setArtifacts(await artifactsRes.json());
+      const topicsData = await topicsRes.json();
+      const entitiesData = await entitiesRes.json();
+      const graphDataJson = await graphRes.json();
+      const artifactsData = await artifactsRes.json();
+
+      setTopics(topicsRes.ok ? topicsData : []);
+      setEntities(entitiesRes.ok ? entitiesData : []);
+      setGraphData(graphRes.ok ? graphDataJson : { nodes: [], links: [] });
+      setArtifacts(artifactsRes.ok ? artifactsData : []);
+      
+      if (!topicsRes.ok) console.error("Topics Error:", topicsData);
+      if (!entitiesRes.ok) console.error("Entities Error:", entitiesData);
+      if (!graphRes.ok) console.error("Graph Error:", graphDataJson);
+      if (!artifactsRes.ok) console.error("Artifacts Error:", artifactsData);
     } catch (err: any) {
       console.error("Failed to fetch knowledge graph", err);
     } finally {
@@ -528,7 +556,21 @@ function App() {
   };
 
   const handleApprove = () => {
-    setDraftText(prev => prev + (prev.endsWith('\n\n') || prev.length === 0 ? '' : '\n\n') + suggestedParagraph);
+    setDraftText(prev => {
+      // If it's an empty editor, just set the paragraph
+      if (!prev || prev === '<p></p>') {
+        return `<p>${suggestedParagraph}</p>`;
+      }
+      
+      // If the draft ends with a paragraph tag, inject the new text inside it
+      // so that it flows continuously instead of starting a new block.
+      const trimmed = prev.trim();
+      if (trimmed.endsWith('</p>')) {
+        return trimmed.slice(0, -4) + ' ' + suggestedParagraph + '</p>';
+      }
+      
+      return prev + ' ' + suggestedParagraph;
+    });
     setSuggestedParagraph("");
     setRevisionPrompt("");
   };
@@ -672,7 +714,14 @@ function App() {
       <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-synora-accent/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-synora-accent/10 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="absolute top-6 right-6 z-50">
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+        <button 
+          onClick={() => setIsSettingsOpen(true)} 
+          className="flex items-center justify-center w-10 h-10 bg-synora-surface border border-synora-border rounded-lg text-synora-text-secondary hover:text-white hover:border-synora-accent/50 transition-colors shadow-lg"
+          title="Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
         <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-synora-surface border border-synora-border rounded-lg text-synora-text-secondary hover:text-white hover:border-synora-accent/50 transition-colors shadow-lg">
           <LogOut className="w-4 h-4" /> Logout
         </button>
@@ -688,7 +737,7 @@ function App() {
           <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Synora Engine</h1>
           
           <div className="flex bg-synora-surface/50 backdrop-blur-md p-1.5 rounded-2xl border border-synora-border shadow-xl w-full mx-auto max-w-4xl overflow-x-auto custom-scrollbar">
-            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE', 'SETTINGS'] as Tab[]).map((tab) => (
+            {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -704,7 +753,6 @@ function App() {
                 {tab === 'CHAT' && <MessageSquare className="w-4 h-4 shrink-0" />}
                 {tab === 'DISCOVER' && <Compass className="w-4 h-4 shrink-0" />}
                 {tab === 'CREATE' && <FileText className="w-4 h-4 shrink-0" />}
-                {tab === 'SETTINGS' && <Settings className="w-4 h-4 shrink-0" />}
                 <span className="truncate">{tab.charAt(0) + tab.slice(1).toLowerCase()}</span>
               </button>
             ))}
@@ -794,7 +842,7 @@ function App() {
                 
                 <div className="flex bg-synora-bg p-1 rounded-xl">
                   <button onClick={() => setKnowledgeView('LIST')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'LIST' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
-                    <List className="w-4 h-4" /> List
+                    <ListIcon className="w-4 h-4" /> List
                   </button>
                   <button onClick={() => setKnowledgeView('GRAPH')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'GRAPH' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                     <Network className="w-4 h-4" /> Graph
@@ -1533,51 +1581,59 @@ function App() {
             </div>
           )}
 
-          {/* SETTINGS TAB */}
-          {activeTab === 'SETTINGS' && (
-            <div className="max-w-3xl w-full mx-auto glass-panel p-6 md:p-8 mt-8 shrink-0">
-              <div className="flex items-center gap-3 mb-8 border-b border-synora-border pb-4">
-                <Settings className="w-6 h-6 text-synora-accent" />
-                <h2 className="text-2xl font-bold">Settings & Configuration</h2>
-              </div>
+          {/* SETTINGS MODAL */}
+          {isSettingsOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="max-w-3xl w-full mx-auto glass-panel p-6 md:p-8 relative">
+                <button 
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="absolute top-4 right-4 p-2 text-synora-text-secondary hover:text-white bg-synora-bg rounded-full border border-synora-border transition-colors hover:border-synora-accent/50"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-3 mb-8 border-b border-synora-border pb-4 pr-12">
+                  <Settings className="w-6 h-6 text-synora-accent" />
+                  <h2 className="text-2xl font-bold">Settings & Configuration</h2>
+                </div>
 
-              <div className="space-y-8">
-                <section>
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <BrainCircuit className="w-5 h-5 text-synora-accent" /> Local AI Model
-                  </h3>
-                  <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5">
-                    <p className="text-sm text-synora-text-secondary mb-4">
-                      Select which Ollama model Synora should use for knowledge extraction, charting, and drafting. 
-                      Ensure you have run <code className="bg-synora-bg px-1.5 py-0.5 rounded text-synora-accent">ollama pull &lt;model&gt;</code> before selecting it here.
-                    </p>
-                    <select 
-                      value={modelConfig} 
-                      onChange={(e) => setModelConfig(e.target.value)}
-                      className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm"
-                    >
-                      <option value="llama3.2">llama3.2 (Default - Fast & Efficient)</option>
-                      <option value="llama3.1">llama3.1 (Higher accuracy)</option>
-                      <option value="mistral">mistral (Alternative)</option>
-                      <option value="phi3">phi3 (Lightweight)</option>
-                    </select>
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <Key className="w-5 h-5 text-synora-accent" /> Account
-                  </h3>
-                  <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-white">Logged in</p>
-                      <p className="text-sm text-synora-text-secondary">Your knowledge graph is synced and secure.</p>
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <BrainCircuit className="w-5 h-5 text-synora-accent" /> Local AI Model
+                    </h3>
+                    <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5">
+                      <p className="text-sm text-synora-text-secondary mb-4">
+                        Select which Ollama model Synora should use for knowledge extraction, charting, and drafting. 
+                        Ensure you have run <code className="bg-synora-bg px-1.5 py-0.5 rounded text-synora-accent">ollama pull &lt;model&gt;</code> before selecting it here.
+                      </p>
+                      <select 
+                        value={modelConfig} 
+                        onChange={(e) => setModelConfig(e.target.value)}
+                        className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm"
+                      >
+                        <option value="llama3.2">llama3.2 (Default - Fast & Efficient)</option>
+                        <option value="llama3.1">llama3.1 (Higher accuracy)</option>
+                        <option value="mistral">mistral (Alternative)</option>
+                        <option value="phi3">phi3 (Lightweight)</option>
+                      </select>
                     </div>
-                    <button onClick={handleLogout} className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium">
-                      Log Out
-                    </button>
-                  </div>
-                </section>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Key className="w-5 h-5 text-synora-accent" /> Account
+                    </h3>
+                    <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-white">Logged in</p>
+                        <p className="text-sm text-synora-text-secondary">Your knowledge graph is synced and secure.</p>
+                      </div>
+                      <button onClick={handleLogout} className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium">
+                        Log Out
+                      </button>
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
           )}
@@ -1588,4 +1644,10 @@ function App() {
   );
 }
 
-export default App;
+export default function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}

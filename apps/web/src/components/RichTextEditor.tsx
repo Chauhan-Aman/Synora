@@ -25,13 +25,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     },
   });
 
-  // Sync content if it changes externally (e.g. initial load)
+  // Sync content if it changes externally (e.g. from handleApprove)
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      // Small optimization to prevent cursor jumping
-      if (editor.getHTML() === '<p></p>' || content === '') {
-         editor.commands.setContent(content);
-      }
+       editor.commands.setContent(content);
     }
   }, [content, editor]);
 

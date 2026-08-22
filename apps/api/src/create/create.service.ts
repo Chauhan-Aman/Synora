@@ -33,18 +33,19 @@ export class CreateService {
       const vectorString = `[${vector.join(',')}]`;
 
       // Hybrid Search: Vector similarity combined with simple term matches if necessary, but we'll use pure vector for MVP
-      const artifacts = await this.prisma.$queryRawUnsafe<any[]>(`
+      const artifacts = await this.prisma.$queryRaw<any[]>`
         SELECT 
-          id, 
-          title, 
-          "sourceUrl", 
-          summary, 
-          1 - (embedding <=> $1::vector) as similarity 
-        FROM "Artifact"
-        WHERE "userId" = $2 AND embedding IS NOT NULL
-        ORDER BY embedding <=> $1::vector ASC
+          a.id, 
+          a.title, 
+          a."sourceUrl", 
+          c.text as summary, 
+          1 - (c.embedding <=> ${vectorString}::vector) as similarity 
+        FROM "Chunk" c
+        JOIN "Artifact" a ON c."artifactId" = a.id
+        WHERE c."userId" = ${userId} AND c.embedding IS NOT NULL
+        ORDER BY c.embedding <=> ${vectorString}::vector ASC
         LIMIT 5
-      `, vectorString, userId);
+      `;
 
       return artifacts;
     } catch (err) {
