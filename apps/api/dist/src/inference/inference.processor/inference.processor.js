@@ -49,7 +49,6 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const cheerio = __importStar(require("cheerio"));
 const fs = __importStar(require("fs"));
-const Tesseract = __importStar(require("tesseract.js"));
 let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends bullmq_1.WorkerHost {
     prisma;
     logger = new common_1.Logger(InferenceProcessor_1.name);
@@ -107,9 +106,27 @@ let InferenceProcessor = InferenceProcessor_1 = class InferenceProcessor extends
                 });
             }
             else if (artifact.type === 'IMAGE' && artifact.content) {
-                this.logger.log(`Running OCR on Image file: ${artifact.content}`);
-                const { data: { text } } = await Tesseract.recognize(artifact.content, 'eng');
-                contentToProcess = text.replace(/\s+/g, ' ').trim();
+                this.logger.log(`Running llama3.2-vision on Image file: ${artifact.content}`);
+                const imageBuffer = fs.readFileSync(artifact.content);
+                const base64Image = imageBuffer.toString('base64');
+                const visionRes = await fetch(this.OLLAMA_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'llama3.2-vision',
+                        prompt: 'Please transcribe all text in this image accurately. If it is a diagram, chart, or infographic, provide a detailed description of the concepts and structures shown.',
+                        images: [base64Image],
+                        stream: false
+                    })
+                });
+                if (visionRes.ok) {
+                    const visionData = await visionRes.json();
+                    contentToProcess = visionData.response.trim();
+                }
+                else {
+                    this.logger.warn('llama3.2-vision failed, ensure you have run `ollama pull llama3.2-vision`');
+                    contentToProcess = "Failed to process image with Vision model.";
+                }
                 await this.prisma.artifact.update({
                     where: { id: artifactId },
                     data: { content: contentToProcess.substring(0, 5000) },

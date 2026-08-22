@@ -3,7 +3,7 @@ import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, Me
 import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 
-type InputType = 'URL' | 'TEXT' | 'FILE';
+type InputType = 'URL' | 'TEXT' | 'FILE' | 'VOICE';
 type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER' | 'CREATE';
 
 interface Topic { id: string; name: string; count: number; }
@@ -212,6 +212,7 @@ function App() {
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const transcript = e.results[i][0].transcript;
           if (e.results[i].isFinal) {
+            setInputValue(prev => prev + transcript + ' ');
             setChatQuery(prev => prev + transcript + ' ');
           } else {
             interimTranscript += transcript;
@@ -437,7 +438,7 @@ function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: inputType,
+            type: inputType === 'VOICE' ? 'TEXT' : inputType,
             [inputType === 'URL' ? 'sourceUrl' : 'content']: inputValue,
           }),
         });
@@ -718,6 +719,9 @@ function App() {
                 <button onClick={() => setInputType('FILE')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium transition-all duration-200 ${inputType === 'FILE' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                   <Box className="w-4 h-4" /> File
                 </button>
+                <button onClick={() => setInputType('VOICE')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium transition-all duration-200 ${inputType === 'VOICE' ? 'bg-synora-surface text-synora-text-primary shadow-sm text-red-400 hover:text-red-300' : 'text-synora-text-secondary hover:text-red-400/80'}`}>
+                  <Mic className="w-4 h-4" /> Voice
+                </button>
               </div>
 
               <form onSubmit={handleCaptureSubmit} className="space-y-4">
@@ -725,13 +729,33 @@ function App() {
                   <input type="url" placeholder="https://example.com/article" className="glass-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
                 ) : inputType === 'TEXT' ? (
                   <textarea placeholder="Paste your text snippet here..." className="glass-input min-h-[120px] resize-y" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
-                ) : (
+                ) : inputType === 'FILE' ? (
                   <div className="glass-input min-h-[120px] flex items-center justify-center border-dashed border-2 hover:border-synora-accent/50 transition-colors relative">
                     <input type="file" accept=".pdf,image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} disabled={isSubmitting} required />
                     <div className="text-center pointer-events-none">
                       <p className="font-medium text-synora-text-primary">{selectedFile ? selectedFile.name : 'Click or Drag file to upload'}</p>
                       <p className="text-xs text-synora-text-secondary mt-1">Supports PDF, PNG, JPG, WEBP</p>
                     </div>
+                  </div>
+                ) : (
+                  <div className="glass-input min-h-[120px] flex flex-col items-center justify-center relative py-6">
+                    {isListening ? (
+                      <button type="button" onClick={toggleListening} className="p-4 bg-red-500/20 text-red-500 rounded-full animate-pulse border border-red-500/50">
+                        <MicOff className="w-8 h-8" />
+                      </button>
+                    ) : (
+                      <button type="button" onClick={toggleListening} className="p-4 bg-synora-surface hover:bg-synora-bg border border-synora-border text-white rounded-full transition-colors">
+                        <Mic className="w-8 h-8" />
+                      </button>
+                    )}
+                    <p className="mt-4 text-sm text-synora-text-secondary">
+                      {isListening ? "Listening... click to stop" : "Click to record Voice Note"}
+                    </p>
+                    {inputValue && (
+                      <div className="mt-4 w-full p-3 bg-synora-bg/50 rounded-lg text-sm text-white break-words border border-synora-border/50 max-h-32 overflow-y-auto">
+                        {inputValue}
+                      </div>
+                    )}
                   </div>
                 )}
                 <button type="submit" disabled={isSubmitting || (inputType === 'FILE' ? !selectedFile : !inputValue.trim())} className="btn-primary w-full flex items-center justify-center gap-2">
