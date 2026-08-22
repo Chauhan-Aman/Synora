@@ -25,35 +25,41 @@
 - [x] BM25 keyword search + Vector similarity (Hybrid Search with RRF)
 - [x] tsvector full-text search integration
 
-### Phase 4 — Automated Learning
+### Phase 4 — Chrome Extension (Web Clipper)
+- [x] Manifest V3 Chrome extension (`apps/extension/`)
+- [x] Popup UI with login/logout and one-click URL capture
+- [x] JWT auth via `chrome.storage.local`
+- [x] Sends current tab URL directly to Synora backend for processing
+
+### Phase 5 — Automated Learning
 - [x] SM-2 spaced repetition flashcard engine
 - [x] Cron-based automatic flashcard generation from topics
 - [x] Interactive Learn tab with flip cards and difficulty ratings
 
-### Phase 5 — Discovery Engine
+### Phase 6 — Discovery Engine
 - [x] AI taste profile generation from user's knowledge graph
 - [x] Autonomous recommendation generation (Concepts & Synthesis)
 - [x] "Explore" (auto-ingest) and "Dive Deeper" (nested recommendations)
 
-### Phase 6 — Voice & Agentic RAG
+### Phase 7 — Voice & Agentic RAG
 - [x] Speech-to-Text input (Web Speech API)
 - [x] Text-to-Speech responses (SpeechSynthesis API)
 - [x] Agentic web browsing — Synora autonomously searches the internet when local knowledge is insufficient
 - [x] Multi-tool agent loop with automatic knowledge ingestion from web results
 
-### Phase 7 — Create Studio
+### Phase 8 — Create Studio
 - [x] Rich Text Editor (Tiptap) for long-form writing
 - [x] Context-aware AI paragraph generation from Knowledge Graph
 - [x] Approve & Merge workflow with inline revision prompts
 - [x] Dynamic model selection from Settings
 
-### Phase 8 — Multimodal Expansion
+### Phase 9 — Multimodal Expansion
 - [x] Image capture & analysis (Llama 3.2 Vision)
 - [x] PDF text extraction and ingestion (pdf-parse)
 - [x] Audio/Voice note capture and transcription
 - [x] File upload UI with drag-and-drop support
 
-### Phase 9 — UI/UX Polish
+### Phase 10 — UI/UX Polish
 - [x] Settings modal overlay (non-disruptive)
 - [x] Progress bars and loading states across all tabs
 - [x] Error boundary for graceful crash recovery
@@ -63,7 +69,7 @@
 
 ## 🚧 In Progress / Next Up
 
-### Phase 10 — Desktop Application (Tauri)
+### Phase 11 — Desktop Application (Tauri)
 **Goal:** Make Synora a native Windows app that lives in your system tray.
 **Cost:** Free (open-source Rust framework)
 
@@ -80,7 +86,7 @@
 
 ## 📋 Planned Features
 
-### Phase 11 — Local Image Generation
+### Phase 12 — Local Image Generation
 **Goal:** Generate images, diagrams, and cover art directly from your knowledge.
 **Cost:** Free — runs locally on RTX 5070 (12GB VRAM)
 
@@ -94,7 +100,7 @@
 
 ---
 
-### Phase 12 — Content Pipeline (Blog + Social Media)
+### Phase 13 — Content Pipeline (Blog + Social Media)
 **Goal:** Turn your knowledge into publishable content with one click.
 **Cost:** Free
 
@@ -107,19 +113,19 @@
 
 ---
 
-### Phase 13 — Chrome Extension
-**Goal:** Capture knowledge from anywhere on the web without opening Synora.
+### Phase 14 — Chrome Extension Enhancements
+**Goal:** Extend the existing Chrome extension with power-user features.
 **Cost:** Free
 
-- [ ] Lightweight Chrome extension with Synora icon in toolbar
 - [ ] Right-click context menu: "Send to Synora"
-- [ ] Highlight text on any webpage → one-click capture
+- [ ] Highlight text on any webpage → one-click capture selected text
 - [ ] Auto-capture mode: silently saves every article you read (optional)
 - [ ] Popup mini-chat: ask Synora questions about the current page
+- [ ] Extension icon badge showing capture count
 
 ---
 
-### Phase 14 — Advanced Knowledge Features
+### Phase 15 — Advanced Knowledge Features
 **Goal:** Make the Knowledge Graph smarter and more interactive.
 **Cost:** Free
 
@@ -132,7 +138,7 @@
 
 ---
 
-### Phase 15 — Better AI Models
+### Phase 16 — Better AI Models
 **Goal:** Leverage the RTX 5070 for more powerful local inference.
 **Cost:** Free
 
