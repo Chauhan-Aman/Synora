@@ -912,9 +912,9 @@ function App() {
                             </button>
                           ))}
                         </div>
-                        </div>
                       </div>
                       )}
+
 
                       {/* Documents / Artifacts Column */}
                       <div className={showCollections ? "md:col-span-8 lg:col-span-4 xl:col-span-4" : "md:col-span-6 lg:col-span-5 xl:col-span-5"}>
