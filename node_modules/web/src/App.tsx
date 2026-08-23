@@ -878,7 +878,7 @@ function App() {
               ) : (
                 <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden" ref={graphContainerRef}>
                   {knowledgeView === 'LIST' ? (
-                    <div className={`grid grid-cols-1 gap-6 h-full overflow-y-auto pr-2 ${
+                    <div className={`grid grid-cols-1 gap-6 h-full overflow-y-auto custom-scrollbar pr-2 ${
                       showCollections 
                         ? 'lg:grid-cols-[240px_1fr_1.2fr] xl:grid-cols-[260px_1fr_1.5fr]' 
                         : 'lg:grid-cols-[1fr_1.5fr]'
@@ -1010,7 +1010,7 @@ function App() {
                       </div>
                     </div>
                   ) : knowledgeView === 'INSIGHTS' ? (
-                    <div className="w-full h-full p-6 bg-synora-bg/50 border border-synora-border rounded-xl overflow-y-auto">
+                    <div className="w-full h-full p-6 bg-synora-bg/50 border border-synora-border rounded-xl overflow-y-auto custom-scrollbar">
                       <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-bold flex items-center gap-2 text-synora-text-primary">
                           <Sparkles className="w-6 h-6 text-synora-accent" /> AI Knowledge Insights
@@ -1859,7 +1859,7 @@ function App() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 {collections.map(col => (
                   <button
                     key={col.id}
