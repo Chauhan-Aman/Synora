@@ -878,13 +878,18 @@ function App() {
               ) : (
                 <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden" ref={graphContainerRef}>
                   {knowledgeView === 'LIST' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full overflow-y-auto pr-2">
+                    <div className={`grid grid-cols-1 gap-6 h-full overflow-y-auto pr-2 ${
+                      showCollections 
+                        ? 'lg:grid-cols-[240px_1fr_1.2fr] xl:grid-cols-[260px_1fr_1.5fr]' 
+                        : 'lg:grid-cols-[1fr_1.5fr]'
+                    }`}>
                       {/* Collections Column */}
                       {showCollections && (
-                        <div className="md:col-span-4 lg:col-span-3 xl:col-span-2">
-                          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
-                            <Layers className="w-5 h-5 text-synora-accent" /> Collections
-                            <div className="ml-auto flex items-center gap-1">
+                        <div className="flex flex-col min-w-0">
+                          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary whitespace-nowrap">
+                            <Layers className="w-5 h-5 text-synora-accent shrink-0" /> 
+                            <span className="truncate">Collections</span>
+                            <div className="ml-auto flex items-center gap-1 shrink-0">
                               <button onClick={() => setShowNewCollectionModal(true)} className="text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors" title="New Collection">
                                 <Plus className="w-4 h-4" />
                               </button>
@@ -898,8 +903,8 @@ function App() {
                             onClick={() => setSelectedCollectionId(null)}
                             className={`flex items-center justify-between p-3 rounded-lg border transition-all ${selectedCollectionId === null ? 'bg-synora-surface border-synora-accent/50 text-white shadow-sm' : 'bg-synora-bg border-synora-border text-synora-text-secondary hover:border-synora-accent/30 hover:text-white'}`}
                           >
-                            <span className="font-medium">All Documents</span>
-                            <span className="bg-synora-bg px-2 py-0.5 rounded-full text-[10px]">{artifacts.length}</span>
+                            <span className="font-medium truncate mr-2">All Documents</span>
+                            <span className="bg-synora-bg px-2 py-0.5 rounded-full text-[10px] shrink-0">{artifacts.length}</span>
                           </button>
                           {collections.map(col => (
                             <button 
@@ -907,8 +912,8 @@ function App() {
                               onClick={() => setSelectedCollectionId(col.id)}
                               className={`flex items-center justify-between p-3 rounded-lg border transition-all ${selectedCollectionId === col.id ? 'bg-synora-surface border-synora-accent/50 text-white shadow-sm' : 'bg-synora-bg border-synora-border text-synora-text-secondary hover:border-synora-accent/30 hover:text-white'}`}
                             >
-                              <span className="font-medium">{col.name}</span>
-                              <span className="bg-synora-bg px-2 py-0.5 rounded-full text-[10px]">{col.artifacts?.length || 0}</span>
+                              <span className="font-medium truncate mr-2">{col.name}</span>
+                              <span className="bg-synora-bg px-2 py-0.5 rounded-full text-[10px] shrink-0">{col.artifacts?.length || 0}</span>
                             </button>
                           ))}
                         </div>
@@ -917,36 +922,38 @@ function App() {
 
 
                       {/* Documents / Artifacts Column */}
-                      <div className={showCollections ? "md:col-span-8 lg:col-span-4 xl:col-span-4" : "md:col-span-6 lg:col-span-5 xl:col-span-5"}>
-                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
+                      <div className="flex flex-col min-w-0">
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary whitespace-nowrap">
                           {!showCollections && (
-                            <button onClick={() => setShowCollections(true)} className="mr-2 p-1 bg-synora-surface border border-synora-border rounded-lg hover:border-synora-accent/50 text-synora-text-secondary hover:text-white transition-colors" title="Show Collections">
+                            <button onClick={() => setShowCollections(true)} className="mr-2 p-1 bg-synora-surface border border-synora-border rounded-lg hover:border-synora-accent/50 text-synora-text-secondary hover:text-white transition-colors shrink-0" title="Show Collections">
                               <Layers className="w-5 h-5" />
                             </button>
                           )}
-                          <FileText className="w-5 h-5 text-synora-accent" /> Documents
+                          <FileText className="w-5 h-5 text-synora-accent shrink-0" /> 
+                          <span className="truncate">Documents</span>
                           <button 
                             onClick={() => setShowWebSearches(!showWebSearches)}
-                            className="ml-auto text-xs px-3 py-1 bg-synora-surface border border-synora-border rounded-lg hover:border-synora-accent/50 text-synora-text-secondary hover:text-white transition-colors"
+                            className="ml-auto text-xs px-3 py-1 bg-synora-surface border border-synora-border rounded-lg hover:border-synora-accent/50 text-synora-text-secondary hover:text-white transition-colors shrink-0 whitespace-nowrap"
                           >
-                            {showWebSearches ? 'Hide Web Searches' : 'Show Web Searches'}
+                            {showWebSearches ? 'Hide Web' : 'Show Web'}
                           </button>
                         </h3>
-                        {artifacts.filter(a => (showWebSearches || a.type !== 'WEB_SEARCH') && (!selectedCollectionId || a.collections?.some((c:any) => c.id === selectedCollectionId))).length === 0 ? (
-                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No documents found.</p>
-                        ) : (
-                          <div className="flex flex-col gap-3">
-                            {artifacts.filter(a => (showWebSearches || a.type !== 'WEB_SEARCH') && (!selectedCollectionId || a.collections?.some((c:any) => c.id === selectedCollectionId))).map(artifact => (
-                              <div 
-                                key={artifact.id} 
-                                onClick={() => setSelectedArtifact(artifact)}
-                                className="flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/50 rounded-xl p-4 cursor-pointer hover:-translate-y-0.5 transition-all group"
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${artifact.type === 'URL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : artifact.type === 'PDF' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                                    {artifact.type}
-                                  </span>
-                                  <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-4 pr-2 pb-8">
+                          {artifacts.filter(a => (showWebSearches || a.type !== 'WEB_SEARCH') && (!selectedCollectionId || a.collections?.some((c:any) => c.id === selectedCollectionId))).length === 0 ? (
+                            <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No documents found.</p>
+                          ) : (
+                            <div className="flex flex-col gap-3">
+                              {artifacts.filter(a => (showWebSearches || a.type !== 'WEB_SEARCH') && (!selectedCollectionId || a.collections?.some((c:any) => c.id === selectedCollectionId))).map((artifact: any) => (
+                                <div 
+                                  key={artifact.id} 
+                                  onClick={() => setSelectedArtifact(artifact)}
+                                  className="flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/50 rounded-xl p-4 cursor-pointer hover:-translate-y-0.5 transition-all group"
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${artifact.type === 'URL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : artifact.type === 'PDF' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                                      {artifact.type}
+                                    </span>
+                                  <div className="flex items-center gap-2 shrink-0">
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -957,25 +964,23 @@ function App() {
                                     >
                                       + Col
                                     </button>
-                                    <span className="text-xs text-synora-text-secondary">{new Date(artifact.createdAt).toLocaleDateString()}</span>
+                                    <span className="text-xs text-synora-text-secondary whitespace-nowrap">{new Date(artifact.createdAt).toLocaleDateString()}</span>
                                   </div>
                                 </div>
-                                <span className="font-bold text-white mb-2 line-clamp-2 leading-snug group-hover:text-synora-accent transition-colors">
-                                  {artifact.title || (artifact.sourceUrl ? artifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : (artifact.content ? artifact.content.substring(0, 50) + '...' : 'Unknown Document'))}
-                                </span>
-                                {artifact.summary && (
-                                  <p className="text-xs text-synora-text-secondary line-clamp-2 leading-relaxed">{artifact.summary}</p>
-                                )}
+                                <h4 className="text-lg font-bold text-white group-hover:text-synora-accent transition-colors truncate">{artifact.title}</h4>
+                                <p className="text-sm text-synora-text-secondary line-clamp-2">{artifact.summary || artifact.content?.substring(0, 150)}</p>
                               </div>
                             ))}
                           </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                       
                       {/* Knowledge Categories for Radial Menu */}
-                      <div className={showCollections ? "md:col-span-12 lg:col-span-5 xl:col-span-6" : "md:col-span-6 lg:col-span-7 xl:col-span-7"}>
-                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
-                          <Compass className="w-5 h-5 text-synora-accent" /> Knowledge Hub
+                      <div className="flex flex-col min-w-0">
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary whitespace-nowrap">
+                          <Compass className="w-5 h-5 text-synora-accent shrink-0" /> 
+                          <span className="truncate">Knowledge Hub</span>
                         </h3>
                         {radialCategories.length === 0 ? (
                           <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">Your knowledge graph is empty.</p>
