@@ -130,6 +130,7 @@ function App() {
   const [showNewCollectionModal, setShowNewCollectionModal] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [showAddToCollectionModal, setShowAddToCollectionModal] = useState<{artifactId: string} | null>(null);
+  const [showCollections, setShowCollections] = useState(true);
 
 
   // Chat State
@@ -879,13 +880,19 @@ function App() {
                   {knowledgeView === 'LIST' ? (
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full overflow-y-auto pr-2">
                       {/* Collections Column */}
-                      <div className="md:col-span-4 lg:col-span-3 xl:col-span-2">
-                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
-                          <Layers className="w-5 h-5 text-synora-accent" /> Collections
-                          <button onClick={() => setShowNewCollectionModal(true)} className="ml-auto text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors">
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </h3>
+                      {showCollections && (
+                        <div className="md:col-span-4 lg:col-span-3 xl:col-span-2">
+                          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
+                            <Layers className="w-5 h-5 text-synora-accent" /> Collections
+                            <div className="ml-auto flex items-center gap-1">
+                              <button onClick={() => setShowNewCollectionModal(true)} className="text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors" title="New Collection">
+                                <Plus className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => setShowCollections(false)} className="text-xs px-2 py-1 bg-synora-surface border border-synora-border text-synora-text-secondary rounded-lg hover:bg-synora-bg hover:text-white transition-colors" title="Hide Collections">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </h3>
                         <div className="flex flex-col gap-2">
                           <button 
                             onClick={() => setSelectedCollectionId(null)}
@@ -905,11 +912,18 @@ function App() {
                             </button>
                           ))}
                         </div>
+                        </div>
                       </div>
+                      )}
 
                       {/* Documents / Artifacts Column */}
-                      <div className="md:col-span-8 lg:col-span-4 xl:col-span-4">
+                      <div className={showCollections ? "md:col-span-8 lg:col-span-4 xl:col-span-4" : "md:col-span-6 lg:col-span-5 xl:col-span-5"}>
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
+                          {!showCollections && (
+                            <button onClick={() => setShowCollections(true)} className="mr-2 p-1 bg-synora-surface border border-synora-border rounded-lg hover:border-synora-accent/50 text-synora-text-secondary hover:text-white transition-colors" title="Show Collections">
+                              <Layers className="w-5 h-5" />
+                            </button>
+                          )}
                           <FileText className="w-5 h-5 text-synora-accent" /> Documents
                           <button 
                             onClick={() => setShowWebSearches(!showWebSearches)}
@@ -959,7 +973,7 @@ function App() {
                       </div>
                       
                       {/* Knowledge Categories for Radial Menu */}
-                      <div className="md:col-span-12 lg:col-span-5 xl:col-span-6">
+                      <div className={showCollections ? "md:col-span-12 lg:col-span-5 xl:col-span-6" : "md:col-span-6 lg:col-span-7 xl:col-span-7"}>
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <Compass className="w-5 h-5 text-synora-accent" /> Knowledge Hub
                         </h3>
