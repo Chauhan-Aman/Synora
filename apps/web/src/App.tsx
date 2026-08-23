@@ -127,6 +127,10 @@ function App() {
   const [insights, setInsights] = useState<any[]>([]);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [showNewCollectionModal, setShowNewCollectionModal] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [showAddToCollectionModal, setShowAddToCollectionModal] = useState<{artifactId: string} | null>(null);
+
 
   // Chat State
   const [chatQuery, setChatQuery] = useState('');
@@ -878,16 +882,7 @@ function App() {
                       <div>
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <Layers className="w-5 h-5 text-synora-accent" /> Collections
-                          <button onClick={async () => {
-                            const name = prompt("Collection Name:");
-                            if (name) {
-                              const res = await fetchWithAuth('http://localhost:3000/knowledge/collections', {
-                                method: 'POST',
-                                body: JSON.stringify({ name })
-                              });
-                              if (res.ok) fetchKnowledge();
-                            }
-                          }} className="ml-auto text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors">
+                          <button onClick={() => setShowNewCollectionModal(true)} className="ml-auto text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors">
                             <Plus className="w-4 h-4" />
                           </button>
                         </h3>
@@ -939,18 +934,10 @@ function App() {
                                   </span>
                                   <div className="flex items-center gap-2">
                                     <button 
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation();
                                         if (collections.length === 0) return alert("Create a collection first!");
-                                        const colName = prompt("Add to collection:\n" + collections.map((c,i) => `${i+1}. ${c.name}`).join('\n') + "\n\nEnter number:");
-                                        const idx = parseInt(colName || '') - 1;
-                                        if (!isNaN(idx) && collections[idx]) {
-                                          await fetchWithAuth(`http://localhost:3000/knowledge/artifacts/${artifact.id}/collections`, {
-                                            method: 'POST',
-                                            body: JSON.stringify({ collectionId: collections[idx].id })
-                                          });
-                                          fetchKnowledge();
-                                        }
+                                        setShowAddToCollectionModal({ artifactId: artifact.id });
                                       }}
                                       className="text-xs px-2 py-1 bg-synora-bg hover:bg-synora-accent/20 rounded-md text-synora-text-secondary hover:text-synora-accent transition-colors"
                                     >
@@ -1757,6 +1744,127 @@ function App() {
           
         </div>
       </div>
+
+      {/* Modals */}
+      {showNewCollectionModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in p-4">
+          <div className="bg-synora-surface border border-synora-border rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+                <Layers className="w-5 h-5 text-synora-accent" /> New Collection
+              </h3>
+              <button onClick={() => setShowNewCollectionModal(false)} className="text-synora-text-secondary hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-synora-text-secondary mb-1">Collection Name</label>
+                <input 
+                  autoFocus
+                  type="text" 
+                  value={newCollectionName}
+                  onChange={e => setNewCollectionName(e.target.value)}
+                  className="w-full bg-synora-bg border border-synora-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-synora-accent transition-colors"
+                  placeholder="e.g. Machine Learning"
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter' && newCollectionName.trim()) {
+                      const res = await fetchWithAuth('http://localhost:3000/knowledge/collections', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newCollectionName.trim() })
+                      });
+                      if (res.ok) {
+                        fetchKnowledge();
+                        setShowNewCollectionModal(false);
+                        setNewCollectionName('');
+                      }
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button 
+                  onClick={() => setShowNewCollectionModal(false)}
+                  className="px-4 py-2 rounded-lg font-medium text-synora-text-secondary hover:text-white hover:bg-synora-bg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={!newCollectionName.trim()}
+                  onClick={async () => {
+                    const res = await fetchWithAuth('http://localhost:3000/knowledge/collections', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: newCollectionName.trim() })
+                    });
+                    if (res.ok) {
+                      fetchKnowledge();
+                      setShowNewCollectionModal(false);
+                      setNewCollectionName('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-synora-accent text-white rounded-lg font-bold hover:bg-emerald-400 transition-colors disabled:opacity-50"
+                >
+                  Create Collection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddToCollectionModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in p-4">
+          <div className="bg-synora-surface border border-synora-border rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+                <Plus className="w-5 h-5 text-synora-accent" /> Add to Collection
+              </h3>
+              <button onClick={() => setShowAddToCollectionModal(null)} className="text-synora-text-secondary hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {collections.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-synora-text-secondary mb-4">You don't have any collections yet.</p>
+                <button 
+                  onClick={() => {
+                    setShowAddToCollectionModal(null);
+                    setShowNewCollectionModal(true);
+                  }}
+                  className="px-4 py-2 bg-synora-bg border border-synora-border text-white rounded-lg hover:border-synora-accent transition-colors"
+                >
+                  Create your first collection
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                {collections.map(col => (
+                  <button
+                    key={col.id}
+                    onClick={async () => {
+                      await fetchWithAuth(`http://localhost:3000/knowledge/artifacts/${showAddToCollectionModal.artifactId}/collections`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ collectionId: col.id })
+                      });
+                      fetchKnowledge();
+                      setShowAddToCollectionModal(null);
+                    }}
+                    className="w-full flex items-center justify-between p-3 bg-synora-bg border border-synora-border rounded-lg hover:border-synora-accent hover:bg-synora-accent/5 transition-all text-left group"
+                  >
+                    <span className="font-medium text-white group-hover:text-synora-accent transition-colors">{col.name}</span>
+                    <span className="text-xs text-synora-text-secondary bg-synora-surface px-2 py-1 rounded-full">{col.artifacts?.length || 0} items</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
