@@ -39,18 +39,19 @@ let CreateService = CreateService_1 = class CreateService {
             const embedData = await embeddingResponse.json();
             const vector = embedData.embedding;
             const vectorString = `[${vector.join(',')}]`;
-            const artifacts = await this.prisma.$queryRawUnsafe(`
+            const artifacts = await this.prisma.$queryRaw `
         SELECT 
-          id, 
-          title, 
-          "sourceUrl", 
-          summary, 
-          1 - (embedding <=> $1::vector) as similarity 
-        FROM "Artifact"
-        WHERE "userId" = $2 AND embedding IS NOT NULL
-        ORDER BY embedding <=> $1::vector ASC
+          a.id, 
+          a.title, 
+          a."sourceUrl", 
+          c.text as summary, 
+          1 - (c.embedding <=> ${vectorString}::vector) as similarity 
+        FROM "Chunk" c
+        JOIN "Artifact" a ON c."artifactId" = a.id
+        WHERE c."userId" = ${userId} AND c.embedding IS NOT NULL
+        ORDER BY c.embedding <=> ${vectorString}::vector ASC
         LIMIT 5
-      `, vectorString, userId);
+      `;
             return artifacts;
         }
         catch (err) {
