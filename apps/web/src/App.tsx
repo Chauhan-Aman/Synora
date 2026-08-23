@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List as ListIcon, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX, Volume2, Settings } from 'lucide-react';
+import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List as ListIcon, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX, Volume2, Settings, Layers, Plus, ExternalLink } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
@@ -55,7 +55,7 @@ function App() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
-  const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH'>('LIST');
+  const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
@@ -121,6 +121,12 @@ function App() {
     resizeObserver.observe(graphContainerRef.current);
     return () => resizeObserver.disconnect();
   }, [knowledgeView, activeTab, token]);
+
+  // Phase 15: Knowledge State
+  const [collections, setCollections] = useState<any[]>([]);
+  const [insights, setInsights] = useState<any[]>([]);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
 
   // Chat State
   const [chatQuery, setChatQuery] = useState('');
@@ -336,21 +342,27 @@ function App() {
   const fetchKnowledge = async () => {
     setIsLoadingKnowledge(true);
     try {
-      const [topicsRes, entitiesRes, graphRes, artifactsRes] = await Promise.all([
+      const [topicsRes, entitiesRes, graphRes, artifactsRes, collectionsRes, insightsRes] = await Promise.all([
         fetchWithAuth('http://localhost:3000/knowledge/topics'),
         fetchWithAuth('http://localhost:3000/knowledge/entities'),
         fetchWithAuth('http://localhost:3000/knowledge/graph'),
-        fetchWithAuth('http://localhost:3000/knowledge/artifacts')
+        fetchWithAuth('http://localhost:3000/knowledge/artifacts'),
+        fetchWithAuth('http://localhost:3000/knowledge/collections'),
+        fetchWithAuth('http://localhost:3000/knowledge/insights')
       ]);
       const topicsData = await topicsRes.json();
       const entitiesData = await entitiesRes.json();
       const graphDataJson = await graphRes.json();
       const artifactsData = await artifactsRes.json();
+      const collectionsData = await collectionsRes.json();
+      const insightsData = await insightsRes.json();
 
       setTopics(topicsRes.ok ? topicsData : []);
       setEntities(entitiesRes.ok ? entitiesData : []);
       setGraphData(graphRes.ok ? graphDataJson : { nodes: [], links: [] });
       setArtifacts(artifactsRes.ok ? artifactsData : []);
+      setCollections(collectionsRes.ok ? collectionsData : []);
+      setInsights(insightsRes.ok ? insightsData : []);
       
       if (!topicsRes.ok) console.error("Topics Error:", topicsData);
       if (!entitiesRes.ok) console.error("Entities Error:", entitiesData);
@@ -847,6 +859,9 @@ function App() {
                   <button onClick={() => setKnowledgeView('GRAPH')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'GRAPH' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                     <Network className="w-4 h-4" /> Graph
                   </button>
+                  <button onClick={() => setKnowledgeView('INSIGHTS')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'INSIGHTS' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
+                    <Sparkles className="w-4 h-4" /> Insights
+                  </button>
                 </div>
               </div>
 
@@ -858,7 +873,45 @@ function App() {
               ) : (
                 <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden" ref={graphContainerRef}>
                   {knowledgeView === 'LIST' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 h-full overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 h-full overflow-y-auto pr-2">
+                      {/* Collections Column */}
+                      <div>
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
+                          <Layers className="w-5 h-5 text-synora-accent" /> Collections
+                          <button onClick={async () => {
+                            const name = prompt("Collection Name:");
+                            if (name) {
+                              const res = await fetchWithAuth('http://localhost:3000/knowledge/collections', {
+                                method: 'POST',
+                                body: JSON.stringify({ name })
+                              });
+                              if (res.ok) fetchKnowledge();
+                            }
+                          }} className="ml-auto text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors">
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </h3>
+                        <div className="flex flex-col gap-2">
+                          <button 
+                            onClick={() => setSelectedCollectionId(null)}
+                            className={`flex items-center justify-between p-3 rounded-lg border transition-all ${selectedCollectionId === null ? 'bg-synora-surface border-synora-accent/50 text-white shadow-sm' : 'bg-synora-bg border-synora-border text-synora-text-secondary hover:border-synora-accent/30 hover:text-white'}`}
+                          >
+                            <span className="font-medium">All Documents</span>
+                            <span className="bg-synora-bg px-2 py-0.5 rounded-full text-[10px]">{artifacts.length}</span>
+                          </button>
+                          {collections.map(col => (
+                            <button 
+                              key={col.id}
+                              onClick={() => setSelectedCollectionId(col.id)}
+                              className={`flex items-center justify-between p-3 rounded-lg border transition-all ${selectedCollectionId === col.id ? 'bg-synora-surface border-synora-accent/50 text-white shadow-sm' : 'bg-synora-bg border-synora-border text-synora-text-secondary hover:border-synora-accent/30 hover:text-white'}`}
+                            >
+                              <span className="font-medium">{col.name}</span>
+                              <span className="bg-synora-bg px-2 py-0.5 rounded-full text-[10px]">{col.artifacts?.length || 0}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Documents / Artifacts Column */}
                       <div>
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
@@ -870,11 +923,11 @@ function App() {
                             {showWebSearches ? 'Hide Web Searches' : 'Show Web Searches'}
                           </button>
                         </h3>
-                        {artifacts.filter(a => showWebSearches || a.type !== 'WEB_SEARCH').length === 0 ? (
-                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No documents captured yet.</p>
+                        {artifacts.filter(a => (showWebSearches || a.type !== 'WEB_SEARCH') && (!selectedCollectionId || a.collections?.some((c:any) => c.id === selectedCollectionId))).length === 0 ? (
+                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">No documents found.</p>
                         ) : (
                           <div className="flex flex-col gap-3">
-                            {artifacts.filter(a => showWebSearches || a.type !== 'WEB_SEARCH').map(artifact => (
+                            {artifacts.filter(a => (showWebSearches || a.type !== 'WEB_SEARCH') && (!selectedCollectionId || a.collections?.some((c:any) => c.id === selectedCollectionId))).map(artifact => (
                               <div 
                                 key={artifact.id} 
                                 onClick={() => setSelectedArtifact(artifact)}
@@ -884,7 +937,27 @@ function App() {
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${artifact.type === 'URL' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : artifact.type === 'PDF' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                                     {artifact.type}
                                   </span>
-                                  <span className="text-xs text-synora-text-secondary">{new Date(artifact.createdAt).toLocaleDateString()}</span>
+                                  <div className="flex items-center gap-2">
+                                    <button 
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (collections.length === 0) return alert("Create a collection first!");
+                                        const colName = prompt("Add to collection:\n" + collections.map((c,i) => `${i+1}. ${c.name}`).join('\n') + "\n\nEnter number:");
+                                        const idx = parseInt(colName || '') - 1;
+                                        if (!isNaN(idx) && collections[idx]) {
+                                          await fetchWithAuth(`http://localhost:3000/knowledge/artifacts/${artifact.id}/collections`, {
+                                            method: 'POST',
+                                            body: JSON.stringify({ collectionId: collections[idx].id })
+                                          });
+                                          fetchKnowledge();
+                                        }
+                                      }}
+                                      className="text-xs px-2 py-1 bg-synora-bg hover:bg-synora-accent/20 rounded-md text-synora-text-secondary hover:text-synora-accent transition-colors"
+                                    >
+                                      + Col
+                                    </button>
+                                    <span className="text-xs text-synora-text-secondary">{new Date(artifact.createdAt).toLocaleDateString()}</span>
+                                  </div>
                                 </div>
                                 <span className="font-bold text-white mb-2 line-clamp-2 leading-snug group-hover:text-synora-accent transition-colors">
                                   {artifact.title || (artifact.sourceUrl ? artifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : (artifact.content ? artifact.content.substring(0, 50) + '...' : 'Unknown Document'))}
@@ -929,6 +1002,50 @@ function App() {
                           </div>
                         )}
                       </div>
+                    </div>
+                  ) : knowledgeView === 'INSIGHTS' ? (
+                    <div className="w-full h-full p-6 bg-synora-bg/50 border border-synora-border rounded-xl overflow-y-auto">
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold flex items-center gap-2 text-synora-text-primary">
+                          <Sparkles className="w-6 h-6 text-synora-accent" /> AI Knowledge Insights
+                        </h3>
+                        <button 
+                          onClick={async () => {
+                            setIsGeneratingInsights(true);
+                            try {
+                              const res = await fetchWithAuth('http://localhost:3000/knowledge/insights/generate', { method: 'POST' });
+                              if (res.ok) setInsights(await res.json());
+                            } catch(e) { console.error(e) }
+                            setIsGeneratingInsights(false);
+                          }}
+                          disabled={isGeneratingInsights}
+                          className="flex items-center gap-2 px-4 py-2 bg-synora-accent text-white rounded-lg font-bold hover:bg-emerald-400 transition-colors disabled:opacity-50"
+                        >
+                          {isGeneratingInsights ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
+                          Generate Insights
+                        </button>
+                      </div>
+                      {insights.length === 0 ? (
+                        <p className="text-synora-text-secondary py-8 text-center bg-synora-surface rounded-xl border border-synora-border/50">No insights generated yet. Click generate to analyze your knowledge!</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {insights.map(insight => (
+                            <div key={insight.id} className="bg-synora-surface border border-synora-border p-6 rounded-xl relative overflow-hidden group">
+                              <div className={`absolute top-0 left-0 w-full h-1 ${insight.type === 'GAP' ? 'bg-orange-500' : 'bg-red-500'}`}></div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border mb-3 inline-block ${insight.type === 'GAP' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                {insight.type === 'GAP' ? 'KNOWLEDGE GAP' : 'CONFLICT DETECTED'}
+                              </span>
+                              <h4 className="text-lg font-bold text-white mb-2 leading-snug">{insight.title}</h4>
+                              <p className="text-sm text-synora-text-secondary leading-relaxed mb-4">{insight.description}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {insight.sources.map((src: string) => (
+                                  <span key={src} className="text-xs bg-synora-bg px-2 py-1 rounded-md text-synora-text-secondary border border-synora-border">{src}</span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="w-full h-full bg-synora-bg/50 border border-synora-border rounded-xl absolute inset-0">

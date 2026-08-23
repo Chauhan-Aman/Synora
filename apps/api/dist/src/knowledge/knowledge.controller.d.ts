@@ -45,5 +45,65 @@ export declare class KnowledgeController {
             id: string;
             name: string;
         }[];
+        collections: {
+            id: string;
+            name: string;
+            userId: string;
+            createdAt: Date;
+            updatedAt: Date;
+        }[];
+    }[]>;
+    getCollections(user: any): Promise<({
+        artifacts: {
+            id: string;
+            title: string | null;
+            sourceUrl: string | null;
+        }[];
+    } & {
+        id: string;
+        name: string;
+        userId: string;
+        createdAt: Date;
+        updatedAt: Date;
+    })[]>;
+    createCollection(user: any, body: {
+        name: string;
+    }): Promise<{
+        id: string;
+        name: string;
+        userId: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    addArtifactToCollection(user: any, artifactId: string, body: {
+        collectionId: string;
+    }): Promise<{
+        id: string;
+        userId: string;
+        type: string;
+        title: string | null;
+        sourceUrl: string | null;
+        content: string | null;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    getInsights(user: any): Promise<{
+        id: string;
+        userId: string;
+        type: string;
+        title: string;
+        createdAt: Date;
+        description: string;
+        sources: string[];
+    }[]>;
+    generateInsights(user: any): Promise<{
+        id: string;
+        userId: string;
+        type: string;
+        title: string;
+        createdAt: Date;
+        description: string;
+        sources: string[];
     }[]>;
 }

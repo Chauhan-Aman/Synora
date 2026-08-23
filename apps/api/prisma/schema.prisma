@@ -22,6 +22,8 @@ model User {
   chunks       Chunk[]
   flashcards   Flashcard[]
   recommendations Recommendation[]
+  collections  Collection[]
+  insights     Insight[]
 }
 
 model Artifact {
@@ -40,6 +42,7 @@ model Artifact {
   entities  Entity[]
   chunks    Chunk[]
   flashcards Flashcard[]
+  collections Collection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,5 +130,33 @@ model Recommendation {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  createdAt   DateTime @default(now())
+}
+
+model Collection {
+  id        String   @id @default(uuid())
+  name      String
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  artifacts Artifact[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([name, userId])
+}
+
+model Insight {
+  id          String   @id @default(uuid())
+  type        String   // e.g., "GAP", "CONFLICT"
+  title       String
+  description String
+  sources     String[] // Array of Artifact titles or Topic names
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   createdAt   DateTime @default(now())
 }

@@ -122,7 +122,8 @@ let KnowledgeController = class KnowledgeController {
             where: { userId: user.userId },
             include: {
                 summary: true,
-                topics: { select: { id: true, name: true } }
+                topics: { select: { id: true, name: true } },
+                collections: true
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -135,8 +136,100 @@ let KnowledgeController = class KnowledgeController {
             content: a.content,
             summary: a.summary?.text,
             createdAt: a.createdAt,
-            topics: a.topics
+            topics: a.topics,
+            collections: a.collections
         }));
+    }
+    async getCollections(user) {
+        return this.prisma.collection.findMany({
+            where: { userId: user.userId },
+            include: {
+                artifacts: { select: { id: true, title: true, sourceUrl: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    async createCollection(user, body) {
+        return this.prisma.collection.create({
+            data: {
+                name: body.name,
+                userId: user.userId
+            }
+        });
+    }
+    async addArtifactToCollection(user, artifactId, body) {
+        return this.prisma.artifact.update({
+            where: { id: artifactId, userId: user.userId },
+            data: {
+                collections: {
+                    connect: { id: body.collectionId }
+                }
+            }
+        });
+    }
+    async getInsights(user) {
+        return this.prisma.insight.findMany({
+            where: { userId: user.userId },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    async generateInsights(user) {
+        const topics = await this.prisma.topic.findMany({
+            where: { userId: user.userId },
+            take: 20,
+            orderBy: { artifacts: { _count: 'desc' } }
+        });
+        const topicNames = topics.map(t => t.name).join(', ');
+        const prompt = `
+      You are an AI specialized in analyzing a user's knowledge graph to find GAPS and CONFLICTS.
+      
+      User's Top Topics: ${topicNames}
+
+      Identify 2 Knowledge Gaps (topics the user should learn next to connect their existing knowledge) 
+      and 1 Potential Conflict or Nuance (a complex intersection of these topics).
+
+      Respond ONLY with a valid JSON array of objects matching this schema:
+      [
+        {
+          "type": "GAP" | "CONFLICT",
+          "title": "Short title",
+          "description": "Detailed explanation of the gap or conflict",
+          "sources": ["Topic 1", "Topic 2"]
+        }
+      ]
+    `;
+        try {
+            const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'llama3.2',
+                    prompt: prompt,
+                    stream: false,
+                    format: 'json'
+                })
+            });
+            if (!ollamaResponse.ok)
+                throw new Error('Failed to generate insights');
+            const data = await ollamaResponse.json();
+            const insightsList = JSON.parse(data.response);
+            for (const insight of insightsList) {
+                await this.prisma.insight.create({
+                    data: {
+                        type: insight.type || 'GAP',
+                        title: insight.title || 'Untitled Insight',
+                        description: insight.description || '',
+                        sources: insight.sources || [],
+                        userId: user.userId
+                    }
+                });
+            }
+            return this.getInsights(user);
+        }
+        catch (error) {
+            console.error('Insights generation failed:', error);
+            throw error;
+        }
     }
 };
 exports.KnowledgeController = KnowledgeController;
@@ -168,6 +261,44 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], KnowledgeController.prototype, "getArtifacts", null);
+__decorate([
+    (0, common_1.Get)('collections'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], KnowledgeController.prototype, "getCollections", null);
+__decorate([
+    (0, common_1.Post)('collections'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], KnowledgeController.prototype, "createCollection", null);
+__decorate([
+    (0, common_1.Post)('artifacts/:id/collections'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], KnowledgeController.prototype, "addArtifactToCollection", null);
+__decorate([
+    (0, common_1.Get)('insights'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], KnowledgeController.prototype, "getInsights", null);
+__decorate([
+    (0, common_1.Post)('insights/generate'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], KnowledgeController.prototype, "generateInsights", null);
 exports.KnowledgeController = KnowledgeController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('knowledge'),
