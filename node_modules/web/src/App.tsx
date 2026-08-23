@@ -877,9 +877,9 @@ function App() {
               ) : (
                 <div className="flex-1 min-h-0 w-full relative rounded-xl overflow-hidden" ref={graphContainerRef}>
                   {knowledgeView === 'LIST' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 h-full overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full overflow-y-auto pr-2">
                       {/* Collections Column */}
-                      <div>
+                      <div className="md:col-span-4 lg:col-span-3 xl:col-span-2">
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <Layers className="w-5 h-5 text-synora-accent" /> Collections
                           <button onClick={() => setShowNewCollectionModal(true)} className="ml-auto text-xs px-2 py-1 bg-synora-accent/20 text-synora-accent rounded-lg hover:bg-synora-accent hover:text-white transition-colors">
@@ -908,7 +908,7 @@ function App() {
                       </div>
 
                       {/* Documents / Artifacts Column */}
-                      <div>
+                      <div className="md:col-span-8 lg:col-span-4 xl:col-span-4">
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <FileText className="w-5 h-5 text-synora-accent" /> Documents
                           <button 
@@ -959,14 +959,14 @@ function App() {
                       </div>
                       
                       {/* Knowledge Categories for Radial Menu */}
-                      <div className="md:col-span-1 lg:col-span-2">
+                      <div className="md:col-span-12 lg:col-span-5 xl:col-span-6">
                         <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary">
                           <Compass className="w-5 h-5 text-synora-accent" /> Knowledge Hub
                         </h3>
                         {radialCategories.length === 0 ? (
                           <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">Your knowledge graph is empty.</p>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
                             {radialCategories.map((cat: any) => (
                               <button 
                                 key={cat.id}
