@@ -880,7 +880,7 @@ function App() {
                   {knowledgeView === 'LIST' ? (
                     <div className={`grid grid-cols-1 gap-6 h-full overflow-y-auto custom-scrollbar pr-2 ${
                       showCollections 
-                        ? 'lg:grid-cols-[240px_1fr_1.2fr] xl:grid-cols-[260px_1fr_1.5fr]' 
+                        ? 'lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr]' 
                         : 'lg:grid-cols-[1fr_1.5fr]'
                     }`}>
                       {/* Collections Column */}
@@ -977,37 +977,39 @@ function App() {
                       </div>
                       
                       {/* Knowledge Categories for Radial Menu */}
-                      <div className="flex flex-col min-w-0">
-                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary whitespace-nowrap">
-                          <Compass className="w-5 h-5 text-synora-accent shrink-0" /> 
-                          <span className="truncate">Knowledge Hub</span>
-                        </h3>
-                        {radialCategories.length === 0 ? (
-                          <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">Your knowledge graph is empty.</p>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
-                            {radialCategories.map((cat: any) => (
-                              <button 
-                                key={cat.id}
-                                onClick={() => setActiveRadialCategory(cat)}
-                                className="group flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/80 rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-synora-accent/10 relative overflow-hidden"
-                              >
-                                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-synora-accent/10 rounded-full blur-2xl group-hover:bg-synora-accent/20 transition-all"></div>
-                                <div className="flex items-center justify-between mb-4 relative z-10">
-                                  <span className="bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-xs font-bold text-synora-accent tracking-wider">
-                                    {cat.items.length} ITEMS
-                                  </span>
-                                  <div className="w-8 h-8 rounded-full bg-synora-bg border border-synora-border flex items-center justify-center group-hover:scale-110 group-hover:border-synora-accent/50 transition-all">
-                                    <Network className="w-4 h-4 text-synora-text-secondary group-hover:text-synora-accent" />
+                      {!showCollections && (
+                        <div className="flex flex-col min-w-0">
+                          <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-synora-text-secondary whitespace-nowrap">
+                            <Compass className="w-5 h-5 text-synora-accent shrink-0" /> 
+                            <span className="truncate">Knowledge Hub</span>
+                          </h3>
+                          {radialCategories.length === 0 ? (
+                            <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">Your knowledge graph is empty.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
+                              {radialCategories.map((cat: any) => (
+                                <button 
+                                  key={cat.id}
+                                  onClick={() => setActiveRadialCategory(cat)}
+                                  className="group flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/80 rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-synora-accent/10 relative overflow-hidden"
+                                >
+                                  <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-synora-accent/10 rounded-full blur-2xl group-hover:bg-synora-accent/20 transition-all"></div>
+                                  <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <span className="bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-xs font-bold text-synora-accent tracking-wider">
+                                      {cat.items.length} ITEMS
+                                    </span>
+                                    <div className="w-8 h-8 rounded-full bg-synora-bg border border-synora-border flex items-center justify-center group-hover:scale-110 group-hover:border-synora-accent/50 transition-all">
+                                      <Network className="w-4 h-4 text-synora-text-secondary group-hover:text-synora-accent" />
+                                    </div>
                                   </div>
-                                </div>
-                                <h4 className="text-xl font-bold text-white text-left relative z-10">{cat.title}</h4>
-                                <p className="text-sm text-synora-text-secondary text-left mt-2 relative z-10">Click to explore {cat.id.toLowerCase()} in the radial wheel.</p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                                  <h4 className="text-xl font-bold text-white text-left relative z-10">{cat.title}</h4>
+                                  <p className="text-sm text-synora-text-secondary text-left mt-2 relative z-10">Click to explore {cat.id.toLowerCase()} in the radial wheel.</p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : knowledgeView === 'INSIGHTS' ? (
                     <div className="w-full h-full p-6 bg-synora-bg/50 border border-synora-border rounded-xl overflow-y-auto custom-scrollbar">
