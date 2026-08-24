@@ -4,8 +4,10 @@ import {
   BrainCircuit, Layout, BookOpen, Compass,
   ChevronRight, Library, Shield, User, Map, CheckCircle2, CheckCircle, Star, Clock, Zap, Target,
   RefreshCw, Settings2, Trash2, ArrowRight,
-  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow
+  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image as ImageIcon, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
@@ -1436,15 +1438,33 @@ function App() {
           {/* CHAT TAB (RAG) */}
           {activeTab === 'CHAT' && (
             <div className="w-full max-w-4xl mx-auto glass-panel overflow-hidden flex flex-col h-full border-synora-accent/20 shadow-2xl shadow-synora-accent/5 mt-8">
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-h-0 custom-scrollbar pr-2">
                 {chatHistory.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
                     <div className={`max-w-[85%] rounded-2xl p-4 ${
                       msg.role === 'user' 
                         ? 'bg-synora-accent text-white rounded-tr-sm' 
-                        : 'bg-synora-surface border border-synora-border rounded-tl-sm'
+                        : 'bg-synora-surface border border-synora-border rounded-tl-sm text-white/90'
                     }`}>
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({node, ...props}) => <p className="leading-relaxed mb-4 last:mb-0" {...props} />,
+                          a: ({node, ...props}) => <a className="text-synora-accent hover:underline font-medium" target="_blank" rel="noreferrer" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-4 space-y-1" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-4 space-y-1" {...props} />,
+                          li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
+                          h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4 mt-6 text-white" {...props} />,
+                          h2: ({node, ...props}) => <h2 className="text-xl font-bold mb-3 mt-5 text-white" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-lg font-bold mb-2 mt-4 text-white" {...props} />,
+                          code: ({node, inline, ...props}: any) => inline 
+                            ? <code className="bg-synora-bg px-1.5 py-0.5 rounded text-sm font-mono text-emerald-400" {...props} />
+                            : <div className="bg-synora-bg rounded-xl border border-synora-border overflow-hidden my-4"><div className="bg-synora-surface px-4 py-2 text-xs font-mono border-b border-synora-border text-synora-text-secondary flex justify-between"><span>Code</span></div><pre className="p-4 overflow-x-auto custom-scrollbar"><code className="text-sm font-mono text-white/90" {...props} /></pre></div>,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-synora-accent pl-4 italic text-synora-text-secondary my-4" {...props} />,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
                       
                       {msg.agentLogs && msg.agentLogs.length > 0 && (
                         <div className="mt-4 bg-synora-bg border border-synora-border rounded-xl overflow-hidden">
@@ -1748,7 +1768,7 @@ function App() {
                       {isGeneratingCover ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> Generating Cover...</>
                       ) : (
-                        <><Image className="w-4 h-4 text-synora-accent" /> Generate Cover</>
+                        <><ImageIcon className="w-4 h-4 text-synora-accent" /> Generate Cover</>
                       )}
                     </button>
                     <button
