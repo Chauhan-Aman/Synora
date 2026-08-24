@@ -986,24 +986,26 @@ function App() {
                           {radialCategories.length === 0 ? (
                             <p className="text-synora-text-secondary py-8 text-center bg-synora-bg/30 rounded-xl border border-synora-border/50">Your knowledge graph is empty.</p>
                           ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                               {radialCategories.map((cat: any) => (
                                 <button 
                                   key={cat.id}
                                   onClick={() => setActiveRadialCategory(cat)}
-                                  className="group flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/80 rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-synora-accent/10 relative overflow-hidden"
+                                  className="group flex flex-col bg-synora-surface border border-synora-border hover:border-synora-accent/80 rounded-2xl p-5 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-synora-accent/10 relative overflow-hidden h-[160px]"
                                 >
                                   <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-synora-accent/10 rounded-full blur-2xl group-hover:bg-synora-accent/20 transition-all"></div>
-                                  <div className="flex items-center justify-between mb-4 relative z-10">
+                                  <div className="flex items-center justify-between mb-auto relative z-10 w-full">
                                     <span className="bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-xs font-bold text-synora-accent tracking-wider">
                                       {cat.items.length} ITEMS
                                     </span>
-                                    <div className="w-8 h-8 rounded-full bg-synora-bg border border-synora-border flex items-center justify-center group-hover:scale-110 group-hover:border-synora-accent/50 transition-all">
+                                    <div className="w-8 h-8 rounded-full bg-synora-bg border border-synora-border flex items-center justify-center group-hover:scale-110 group-hover:border-synora-accent/50 transition-all shrink-0 ml-2">
                                       <Network className="w-4 h-4 text-synora-text-secondary group-hover:text-synora-accent" />
                                     </div>
                                   </div>
-                                  <h4 className="text-xl font-bold text-white text-left relative z-10">{cat.title}</h4>
-                                  <p className="text-sm text-synora-text-secondary text-left mt-2 relative z-10">Click to explore {cat.id.toLowerCase()} in the radial wheel.</p>
+                                  <div className="flex flex-col items-start w-full mt-2 relative z-10">
+                                    <h4 className="text-lg font-bold text-white text-left line-clamp-2 leading-tight mb-1 w-full" title={cat.title}>{cat.title}</h4>
+                                    <p className="text-xs text-synora-text-secondary text-left line-clamp-1 w-full">Click to explore in radial wheel</p>
+                                  </div>
                                 </button>
                               ))}
                             </div>
