@@ -1115,7 +1115,6 @@ function App() {
                             node.fx = node.x;
                             node.fy = node.y;
                           }}
-                          onEngineStop={() => fgRef.current?.zoomToFit(400, 50)}
                         />
                       )}
                       
