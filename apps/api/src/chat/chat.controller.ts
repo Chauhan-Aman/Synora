@@ -1,4 +1,5 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Logger, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Logger, UseGuards, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -21,6 +22,7 @@ export class ChatController {
     @Body('query') query: string, 
     @Body('history') history: any[], 
     @CurrentUser() user: any,
+    @Res() res: Response,
     @Body('forceWebSearch') forceWebSearch?: boolean,
     @Body('model') modelParam?: string
   ) {
@@ -30,6 +32,15 @@ export class ChatController {
     }
 
     try {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      const sendLog = (action: string, status: string, message: string) => {
+        res.write(`data: ${JSON.stringify({ type: 'log', log: { action, status, message } })}\n\n`);
+      };
+
       let searchQuery = query;
       const agentLogs: { action: string; status: 'done' | 'error'; message: string }[] = [];
 
@@ -54,11 +65,15 @@ Rewritten Query:`;
             const d = await rewriteRes.json();
             searchQuery = d.response.trim();
             this.logger.log(`Rewrote query for search: "${searchQuery}"`);
-            agentLogs.push({ action: 'Query Rewrite', status: 'done', message: `Rewrote query to: "${searchQuery}"` });
+            const logMsg = { action: 'Query Rewrite', status: 'done', message: `Rewrote query to: "${searchQuery}"` };
+            agentLogs.push(logMsg as any);
+            sendLog(logMsg.action, logMsg.status, logMsg.message);
           }
         } catch (e) {
           this.logger.error("Failed to rewrite query", e);
-          agentLogs.push({ action: 'Query Rewrite', status: 'error', message: 'Failed to rewrite query.' });
+          const logMsg = { action: 'Query Rewrite', status: 'error', message: 'Failed to rewrite query.' };
+          agentLogs.push(logMsg as any);
+          sendLog(logMsg.action, logMsg.status, logMsg.message);
         }
       }
 
@@ -128,7 +143,9 @@ Rewritten Query:`;
 
       // --- AGENTIC WEB SEARCH FALLBACK ---
       this.logger.log("Agent evaluating if local context is sufficient...");
-      agentLogs.push({ action: 'Context Evaluation', status: 'done', message: 'Evaluating if local context is sufficient to answer the question...' });
+      const logMsgEval = { action: 'Context Evaluation', status: 'done', message: 'Evaluating if local context is sufficient to answer the question...' };
+      agentLogs.push(logMsgEval as any);
+      sendLog(logMsgEval.action, logMsgEval.status, logMsgEval.message);
       
       const evalPrompt = `Does the following context contain sufficient information to answer the user's question?
 Context:
@@ -151,20 +168,28 @@ Reply with ONLY the word "YES" or "NO".`;
           const responseWord = d.response.trim().toUpperCase();
           needsWebSearch = responseWord.includes('NO');
           this.logger.log(`Agent evaluation result: ${responseWord} -> Needs Web Search: ${needsWebSearch}`);
-          agentLogs.push({ action: 'Context Evaluation', status: 'done', message: `LLM decided local context is ${needsWebSearch ? 'insufficient' : 'sufficient'}.` });
+          const msg2 = { action: 'Context Evaluation', status: 'done', message: `LLM decided local context is ${needsWebSearch ? 'insufficient' : 'sufficient'}.` };
+          agentLogs.push(msg2 as any);
+          sendLog(msg2.action, msg2.status, msg2.message);
         } catch(e) {
           this.logger.error("Failed to evaluate context", e);
         }
       } else if (!contextText) {
         needsWebSearch = true;
-        agentLogs.push({ action: 'Context Evaluation', status: 'done', message: 'No local context found. Forcing web search.' });
+        const msg2 = { action: 'Context Evaluation', status: 'done', message: 'No local context found. Forcing web search.' };
+        agentLogs.push(msg2 as any);
+        sendLog(msg2.action, msg2.status, msg2.message);
       } else if (forceWebSearch) {
-        agentLogs.push({ action: 'Context Evaluation', status: 'done', message: 'User explicitly forced a web search.' });
+        const msg2 = { action: 'Context Evaluation', status: 'done', message: 'User explicitly forced a web search.' };
+        agentLogs.push(msg2 as any);
+        sendLog(msg2.action, msg2.status, msg2.message);
       }
 
       if (needsWebSearch) {
         this.logger.log(`Executing Autonomous Web Search for: "${searchQuery}"`);
-        agentLogs.push({ action: 'Web Search', status: 'done', message: `Searching the Web for "${searchQuery}"` });
+        const msg3 = { action: 'Web Search', status: 'done', message: `Searching the Web for "${searchQuery}"` };
+        agentLogs.push(msg3 as any);
+        sendLog(msg3.action, msg3.status, msg3.message);
         try {
           const bingRes = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`, {
             headers: {
@@ -212,7 +237,9 @@ Reply with ONLY the word "YES" or "NO".`;
               
               contextText += `\n\n[Web Search Result ${i + 1}] (${result.url}):\n${snippet}`;
               sources.push(result.url);
-              agentLogs.push({ action: 'Web Scrape', status: 'done', message: `Scraped and extracted context from: ${result.url}` });
+              const msg4 = { action: 'Web Scrape', status: 'done', message: `Scraped and extracted context from: ${result.url}` };
+              agentLogs.push(msg4 as any);
+              sendLog(msg4.action, msg4.status, msg4.message);
               
               // Asynchronously add to Knowledge Graph!
               this.logger.log(`Pushing ${result.url} to Capture Queue for permanent indexing...`);
@@ -222,12 +249,16 @@ Reply with ONLY the word "YES" or "NO".`;
               
             } catch (scrapeErr) {
               this.logger.error(`Failed to scrape ${result.url}`);
-              agentLogs.push({ action: 'Web Scrape', status: 'error', message: `Failed to scrape ${result.url}` });
+              const msg5 = { action: 'Web Scrape', status: 'error', message: `Failed to scrape ${result.url}` };
+              agentLogs.push(msg5 as any);
+              sendLog(msg5.action, msg5.status, msg5.message);
             }
           }
         } catch(searchErr) {
           this.logger.error("Web search failed", searchErr);
-          agentLogs.push({ action: 'Web Search', status: 'error', message: 'Web search failed.' });
+          const msg6 = { action: 'Web Search', status: 'error', message: 'Web search failed.' };
+          agentLogs.push(msg6 as any);
+          sendLog(msg6.action, msg6.status, msg6.message);
         }
       }
       // -----------------------------------
@@ -250,14 +281,18 @@ USER: ${query}
 ASSISTANT:`;
 
       this.logger.log(`Generating final answer using Llama 3.2...`);
-      // 4. Generate the final answer using Llama
+      
+      // Send metadata sources now that all scrape is done
+      res.write(`data: ${JSON.stringify({ type: 'metadata', sources })}\n\n`);
+
+      // 4. Generate the final answer using Llama (streaming)
       const generateResponse = await fetch('http://localhost:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: targetModel,
           prompt: prompt,
-          stream: false,
+          stream: true,
         }),
       });
 
@@ -265,18 +300,37 @@ ASSISTANT:`;
         throw new Error('Failed to generate answer from Ollama');
       }
 
-      const generationData = await generateResponse.json();
-      agentLogs.push({ action: 'Response Generation', status: 'done', message: `Generated final answer using ${targetModel}` });
+      if (generateResponse.body) {
+        // Read the stream
+        const reader = generateResponse.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(l => l.trim() !== '');
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line);
+              if (data.response) {
+                res.write(`data: ${JSON.stringify({ type: 'text', text: data.response })}\n\n`);
+              }
+            } catch (e) {}
+          }
+        }
+      }
       
-      return { 
-        response: generationData.response,
-        sources: sources,
-        agentLogs: agentLogs
-      };
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+      this.logger.log(`Stream complete for: "${searchQuery}"`);
 
     } catch (error) {
       this.logger.error(`Chat error: ${(error as Error).message}`);
-      throw new HttpException('Failed to communicate with local AI', HttpStatus.INTERNAL_SERVER_ERROR);
+      if (!res.headersSent) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to communicate with local AI' });
+      } else {
+        res.end();
+      }
     }
   }
 }

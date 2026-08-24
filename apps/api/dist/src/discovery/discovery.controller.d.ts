@@ -5,24 +5,24 @@ export declare class DiscoveryController {
     getFeed(user: any): Promise<{
         id: string;
         title: string;
+        type: string;
+        status: string;
+        createdAt: Date;
+        userId: string;
         description: string;
         reasoning: string;
-        type: string;
         imageUrl: string | null;
-        status: string;
-        userId: string;
-        createdAt: Date;
     }[]>;
     exploreRecommendation(id: string, user: any): Promise<{
         id: string;
         title: string | null;
-        type: string;
-        status: string;
-        userId: string;
-        createdAt: Date;
         sourceUrl: string | null;
         content: string | null;
+        type: string;
+        status: string;
+        createdAt: Date;
         updatedAt: Date;
+        userId: string;
     }>;
     getTasteProfile(user: any): Promise<{
         profile: any;
@@ -30,12 +30,12 @@ export declare class DiscoveryController {
     diveDeeper(id: string, user: any): Promise<{
         id: string;
         title: string;
+        type: string;
+        status: string;
+        createdAt: Date;
+        userId: string;
         description: string;
         reasoning: string;
-        type: string;
         imageUrl: string | null;
-        status: string;
-        userId: string;
-        createdAt: Date;
     }[]>;
 }

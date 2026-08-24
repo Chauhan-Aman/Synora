@@ -4,10 +4,12 @@ import {
   BrainCircuit, Layout, BookOpen, Compass,
   ChevronRight, Library, Shield, User, Map, CheckCircle2, CheckCircle, Star, Clock, Zap, Target,
   RefreshCw, Settings2, Trash2, ArrowRight,
-  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image as ImageIcon, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow
+  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image as ImageIcon, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow, Copy
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
@@ -38,6 +40,45 @@ interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
 interface Artifact { id: string; title?: string; sourceUrl: string; type: string; status: string; content?: string; summary?: string; createdAt: string; topics: {id: string, name: string}[] }
 interface ChatMessage { role: 'user' | 'assistant'; content: string; sources?: string[]; agentLogs?: { action: string; status: 'pending'|'done'|'error'; message: string }[]; }
+
+const CodeBlock = ({ inline, className, children, ...props }: any) => {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || '');
+  const lang = match ? match[1] : '';
+  const codeText = String(children).replace(/\n$/, '');
+
+  if (inline) {
+    return <code className="bg-synora-bg px-1.5 py-0.5 rounded text-sm font-mono text-emerald-400" {...props}>{children}</code>;
+  }
+
+  return (
+    <div className="bg-[#1e1e1e] rounded-xl border border-synora-border overflow-hidden my-4 shadow-lg">
+      <div className="bg-synora-surface/50 px-4 py-2 text-xs font-mono border-b border-synora-border text-synora-text-secondary flex justify-between items-center">
+        <span>{lang || 'Code'}</span>
+        <button 
+          onClick={() => {
+            navigator.clipboard.writeText(codeText);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="flex items-center gap-1.5 hover:text-white transition-colors py-1 px-2 rounded-md hover:bg-synora-bg"
+        >
+          {copied ? <CheckCircle className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+          {copied ? 'Copied!' : 'Copy code'}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={vscDarkPlus as any}
+        language={lang}
+        PreTag="div"
+        customStyle={{ margin: 0, padding: '1rem', background: 'transparent', fontSize: '0.875rem' }}
+        {...props}
+      >
+        {codeText}
+      </SyntaxHighlighter>
+    </div>
+  );
+};
 
 function App() {
   // Authentication State
@@ -534,6 +575,9 @@ function App() {
     setChatQuery('');
     setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsChatting(true);
+    
+    // Add empty assistant message placeholder
+    setChatHistory(prev => [...prev, { role: 'assistant', content: '', sources: [], agentLogs: [] }]);
 
     try {
       const response = await fetchWithAuth('http://localhost:3000/chat', {
@@ -543,26 +587,66 @@ function App() {
       });
 
       if (!response.ok) throw new Error('Failed to fetch chat response');
+      if (!response.body) throw new Error('Streaming not supported');
 
-      const data = await response.json();
-      setChatHistory(prev => [...prev, { 
-        role: 'assistant', 
-        content: data.response,
-        sources: data.sources,
-        agentLogs: data.agentLogs
-      }]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const messages = chunk.split('\n\n').filter(Boolean);
+        
+        for (const msg of messages) {
+          if (msg.startsWith('data: ')) {
+            const dataStr = msg.substring(6);
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.type === 'log') {
+                setChatHistory(prev => {
+                  const newHistory = [...prev];
+                  const lastMsg = newHistory[newHistory.length - 1];
+                  const newLogs = [...(lastMsg.agentLogs || []), data.log];
+                  newHistory[newHistory.length - 1] = { ...lastMsg, agentLogs: newLogs };
+                  return newHistory;
+                });
+              } else if (data.type === 'metadata') {
+                setChatHistory(prev => {
+                  const newHistory = [...prev];
+                  const lastMsg = newHistory[newHistory.length - 1];
+                  newHistory[newHistory.length - 1] = { ...lastMsg, sources: data.sources || [] };
+                  return newHistory;
+                });
+              } else if (data.type === 'text') {
+                assistantText += data.text;
+                setChatHistory(prev => {
+                  const newHistory = [...prev];
+                  newHistory[newHistory.length - 1] = { ...newHistory[newHistory.length - 1], content: assistantText };
+                  return newHistory;
+                });
+              }
+            } catch(e) {}
+          }
+        }
+      }
       
       // Auto-speak response if enabled
       if (isVoiceEnabled) {
-        speakText(data.response);
+        speakText(assistantText);
       }
       
     } catch (err) {
       console.error(err);
-      setChatHistory(prev => [...prev, { 
-        role: 'assistant', 
-        content: "Oops! Something went wrong trying to connect to the local AI. Ensure Ollama is running." 
-      }]);
+      setChatHistory(prev => {
+        const newHistory = [...prev];
+        newHistory[newHistory.length - 1] = { 
+          role: 'assistant', 
+          content: "Oops! Something went wrong trying to connect to the local AI. Ensure Ollama is running." 
+        };
+        return newHistory;
+      });
     } finally {
       setIsChatting(false);
     }
@@ -1457,9 +1541,7 @@ function App() {
                           h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4 mt-6 text-white" {...props} />,
                           h2: ({node, ...props}) => <h2 className="text-xl font-bold mb-3 mt-5 text-white" {...props} />,
                           h3: ({node, ...props}) => <h3 className="text-lg font-bold mb-2 mt-4 text-white" {...props} />,
-                          code: ({node, inline, ...props}: any) => inline 
-                            ? <code className="bg-synora-bg px-1.5 py-0.5 rounded text-sm font-mono text-emerald-400" {...props} />
-                            : <div className="bg-synora-bg rounded-xl border border-synora-border overflow-hidden my-4"><div className="bg-synora-surface px-4 py-2 text-xs font-mono border-b border-synora-border text-synora-text-secondary flex justify-between"><span>Code</span></div><pre className="p-4 overflow-x-auto custom-scrollbar"><code className="text-sm font-mono text-white/90" {...props} /></pre></div>,
+                          code: CodeBlock,
                           blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-synora-accent pl-4 italic text-synora-text-secondary my-4" {...props} />,
                         }}
                       >
