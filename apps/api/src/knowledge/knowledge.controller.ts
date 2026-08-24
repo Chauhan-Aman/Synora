@@ -249,11 +249,13 @@ export class KnowledgeController {
       }
       
       if (!Array.isArray(insightsList)) {
-        if (insightsList && insightsList.insights && Array.isArray(insightsList.insights)) {
-          insightsList = insightsList.insights;
-        } else {
-          insightsList = [];
+        let extracted = [];
+        for (const key in insightsList) {
+          if (Array.isArray(insightsList[key])) {
+            extracted.push(...insightsList[key]);
+          }
         }
+        insightsList = extracted;
       }
 
       // Save to database

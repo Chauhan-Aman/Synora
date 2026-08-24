@@ -230,12 +230,13 @@ let KnowledgeController = class KnowledgeController {
                 insightsList = [];
             }
             if (!Array.isArray(insightsList)) {
-                if (insightsList && insightsList.insights && Array.isArray(insightsList.insights)) {
-                    insightsList = insightsList.insights;
+                let extracted = [];
+                for (const key in insightsList) {
+                    if (Array.isArray(insightsList[key])) {
+                        extracted.push(...insightsList[key]);
+                    }
                 }
-                else {
-                    insightsList = [];
-                }
+                insightsList = extracted;
             }
             for (const insight of insightsList) {
                 await this.prisma.insight.create({
