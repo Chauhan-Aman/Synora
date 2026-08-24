@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
-import { Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Loader2, Maximize2, Minimize2, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 
 mermaid.initialize({
   startOnLoad: false,
@@ -20,6 +20,7 @@ export function DiagramViewer({ code, className = '' }: DiagramViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,7 +56,7 @@ export function DiagramViewer({ code, className = '' }: DiagramViewerProps) {
   }, [code]);
 
   return (
-    <div className={`relative flex flex-col items-center justify-center bg-synora-bg border border-synora-border rounded-xl overflow-hidden ${className}`}>
+    <div className={isFullscreen ? "fixed inset-0 z-[100] w-full h-full bg-synora-bg flex flex-col items-center justify-center" : `relative flex flex-col items-center justify-center bg-synora-bg border border-synora-border rounded-xl overflow-hidden ${className}`}>
       
       {/* Toolbar */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-synora-surface/80 backdrop-blur border border-synora-border p-1 rounded-lg">
@@ -68,7 +69,10 @@ export function DiagramViewer({ code, className = '' }: DiagramViewerProps) {
         </button>
         <div className="w-px h-4 bg-synora-border mx-1"></div>
         <button onClick={() => setZoom(1)} className="p-1.5 hover:bg-synora-accent/20 rounded-md text-synora-text-secondary hover:text-white transition-colors" title="Reset Zoom">
-          <Maximize2 className="w-4 h-4" />
+          <RefreshCw className="w-4 h-4" />
+        </button>
+        <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-1.5 hover:bg-synora-accent/20 rounded-md text-synora-text-secondary hover:text-white transition-colors" title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
       </div>
 
