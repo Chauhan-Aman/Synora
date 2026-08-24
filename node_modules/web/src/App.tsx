@@ -66,6 +66,7 @@ function App() {
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [graphSearchQuery, setGraphSearchQuery] = useState("");
   const [artifactDiagram, setArtifactDiagram] = useState<string | null>(null);
   const [isGeneratingDiagram, setIsGeneratingDiagram] = useState(false);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
@@ -1121,6 +1122,41 @@ function App() {
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-xs text-synora-text-secondary font-medium">Documents</span></div>
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-violet-500"></div><span className="text-xs text-synora-text-secondary font-medium">Topics</span></div>
                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-xs text-synora-text-secondary font-medium">Entities</span></div>
+                      </div>
+
+                      {/* Graph Search Bar */}
+                      <div className="absolute top-4 right-4 z-10 w-64">
+                        <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3 top-2.5 text-synora-text-secondary" />
+                          <input 
+                            type="text"
+                            placeholder="Search nodes..."
+                            value={graphSearchQuery}
+                            onChange={e => setGraphSearchQuery(e.target.value)}
+                            className="w-full bg-synora-surface/90 backdrop-blur border border-synora-border rounded-lg pl-9 pr-3 py-2 text-sm focus:border-synora-accent outline-none text-white shadow-lg"
+                          />
+                        </div>
+                        {graphSearchQuery.trim() && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-synora-surface border border-synora-border rounded-lg shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
+                            {graphData.nodes.filter(n => n.name.toLowerCase().includes(graphSearchQuery.toLowerCase())).map(node => (
+                              <button
+                                key={node.id}
+                                onClick={() => {
+                                  setSelectedNode(node);
+                                  fgRef.current?.centerAt(node.x, node.y, 1000);
+                                  fgRef.current?.zoom(4, 1000);
+                                  setGraphSearchQuery("");
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-synora-accent/20 text-sm border-b border-synora-border/50 last:border-0 truncate"
+                              >
+                                {node.name}
+                              </button>
+                            ))}
+                            {graphData.nodes.filter(n => n.name.toLowerCase().includes(graphSearchQuery.toLowerCase())).length === 0 && (
+                              <div className="p-3 text-sm text-synora-text-secondary text-center">No nodes found</div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
 
