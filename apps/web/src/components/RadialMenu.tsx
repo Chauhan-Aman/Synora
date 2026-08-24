@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface RadialMenuItem {
   id: string;
@@ -19,6 +19,7 @@ interface RadialMenuProps {
 export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -31,8 +32,10 @@ export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps)
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // If too many items, limit to top 12 for the wheel to remain usable
-  const displayItems = items.slice(0, 12);
+  // Pagination logic
+  const PAGE_SIZE = 8;
+  const totalPages = Math.ceil(items.length / PAGE_SIZE);
+  const displayItems = items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const numItems = displayItems.length;
   
   // Dimensions
@@ -192,8 +195,13 @@ export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps)
                 {title}
               </span>
               <span className="text-[#94a3b8] text-xs mt-1">
-                {displayItems.length} items
+                {items.length} items
               </span>
+              {totalPages > 1 && (
+                <span className="text-synora-accent/80 font-medium text-[10px] mt-0.5">
+                  Page {page + 1} of {totalPages}
+                </span>
+              )}
             </div>
           </foreignObject>
         </svg>
@@ -205,13 +213,26 @@ export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps)
         >
           <X className="w-5 h-5" />
         </button>
+        {/* Prev / Next buttons */}
+        {totalPages > 1 && (
+          <>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setPage(p => Math.max(0, p - 1)); }}
+              disabled={page === 0}
+              className={`absolute top-1/2 left-1/2 -translate-y-1/2 -ml-[68px] p-1.5 rounded-full z-10 transition-all ${page === 0 ? 'text-synora-border cursor-not-allowed opacity-30' : 'text-synora-text-secondary hover:text-white bg-synora-surface/80 hover:bg-synora-accent hover:shadow-lg hover:shadow-synora-accent/50 border border-synora-border hover:border-synora-accent/50'}`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setPage(p => Math.min(totalPages - 1, p + 1)); }}
+              disabled={page === totalPages - 1}
+              className={`absolute top-1/2 left-1/2 -translate-y-1/2 ml-[44px] p-1.5 rounded-full z-10 transition-all ${page === totalPages - 1 ? 'text-synora-border cursor-not-allowed opacity-30' : 'text-synora-text-secondary hover:text-white bg-synora-surface/80 hover:bg-synora-accent hover:shadow-lg hover:shadow-synora-accent/50 border border-synora-border hover:border-synora-accent/50'}`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </>
+        )}
       </div>
-
-      {items.length > 12 && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-synora-surface/80 backdrop-blur border border-synora-border px-6 py-3 rounded-full text-sm text-synora-text-secondary shadow-lg">
-          Showing top 12 items. {items.length - 12} more hidden.
-        </div>
-      )}
     </div>
   );
 }
