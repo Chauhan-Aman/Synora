@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Sparkles, Link, Type, Loader2, CheckCircle, BrainCircuit, Hash, Box, MessageSquare, Send, Network, List as ListIcon, X, LogOut, Key, GraduationCap, Compass, FileText, Mic, MicOff, VolumeX, Volume2, Settings, Layers, Plus, ExternalLink } from 'lucide-react';
-import ForceGraph2D from 'react-force-graph-2d';
+import { 
+  Network, Save, X, Search, Moon, Sun, 
+  BrainCircuit, Layout, BookOpen, Compass,
+  ChevronRight, Library, Shield, User, Map, CheckCircle2, Star, Clock, Zap, Target,
+  RefreshCw, Settings2, Trash2, ArrowRight,
+  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow
+} from 'lucide-react';
+import { ForceGraph2D } from 'react-force-graph';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
+import { ProceduralCover } from './components/ProceduralCover';
+import { DiagramViewer } from './components/DiagramViewer';
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
@@ -58,6 +66,8 @@ function App() {
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [artifactDiagram, setArtifactDiagram] = useState<string | null>(null);
+  const [isGeneratingDiagram, setIsGeneratingDiagram] = useState(false);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
 
   const [activeRadialCategory, setActiveRadialCategory] = useState<{ id: string, title: string, items: RadialMenuItem[] } | null>(null);
@@ -164,8 +174,10 @@ function App() {
   const [exploringId, setExploringId] = useState<string | null>(null);
   const [divingId, setDivingId] = useState<string | null>(null);
 
-  // Create State
+  // Create Studio State
   const [draftText, setDraftText] = useState("");
+  const [coverData, setCoverData] = useState<any>(null);
+  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
   const [draftContext, setDraftContext] = useState<any[]>([]);
   const [isGeneratingParagraph, setIsGeneratingParagraph] = useState(false);
   const [suggestedParagraph, setSuggestedParagraph] = useState<string>("");
@@ -563,12 +575,30 @@ function App() {
       });
       const data = await res.json();
       if (data.nextParagraph) {
-        setSuggestedParagraph(data.nextParagraph);
+        setSuggestedParagraph(data.suggestedDraft);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error("Error generating paragraph:", error);
     } finally {
       setIsGeneratingParagraph(false);
+    }
+  };
+
+  const handleGenerateCover = async () => {
+    if (!draftText.trim() || isGeneratingCover) return;
+    setIsGeneratingCover(true);
+    try {
+      const response = await fetch(`http://localhost:3000/visuals/cover-theme`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ title: 'My Article', content: draftText })
+      });
+      const data = await response.json();
+      setCoverData(data);
+    } catch (error) {
+      console.error("Error generating cover:", error);
+    } finally {
+      setIsGeneratingCover(false);
     }
   };
 
@@ -1186,13 +1216,54 @@ function App() {
                           <p className="text-sm text-synora-text-secondary mt-1">{new Date(selectedArtifact.createdAt).toLocaleString()}</p>
                         </div>
                         <button 
-                          onClick={() => setSelectedArtifact(null)} 
+                          onClick={() => {
+                            setSelectedArtifact(null);
+                            setArtifactDiagram(null);
+                          }} 
                           className="glass-button p-2"
                         >
                           <X className="w-6 h-6" />
                         </button>
                       </div>
                       <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full flex flex-col gap-8 pb-16">
+                        
+                        {/* Diagram Generation */}
+                        <div className="shrink-0 flex items-center justify-between bg-synora-surface border border-synora-border p-4 rounded-xl">
+                          <div>
+                            <h3 className="text-sm font-bold text-white flex items-center gap-2"><Workflow className="w-4 h-4 text-synora-accent"/> Visual Knowledge Diagram</h3>
+                            <p className="text-xs text-synora-text-secondary mt-1">Use AI to generate a structural map of this document</p>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (isGeneratingDiagram) return;
+                              setIsGeneratingDiagram(true);
+                              try {
+                                const response = await fetch(`http://localhost:3000/visuals/diagram`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                  body: JSON.stringify({ text: selectedArtifact.content || selectedArtifact.summary || '' })
+                                });
+                                const data = await response.json();
+                                setArtifactDiagram(data.diagram);
+                              } catch (e) {
+                                console.error(e);
+                              } finally {
+                                setIsGeneratingDiagram(false);
+                              }
+                            }}
+                            disabled={isGeneratingDiagram}
+                            className="px-4 py-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+                          >
+                            {isGeneratingDiagram ? <><Loader2 className="w-4 h-4 animate-spin"/> Generating...</> : <><Sparkles className="w-4 h-4"/> Generate Map</>}
+                          </button>
+                        </div>
+
+                        {artifactDiagram && (
+                          <div className="h-[400px] w-full shrink-0">
+                            <DiagramViewer code={artifactDiagram} className="w-full h-full" />
+                          </div>
+                        )}
+
                         {selectedArtifact.summary && (
                           <div className="bg-synora-accent/10 border border-synora-accent/20 p-6 rounded-2xl shrink-0">
                             <h3 className="text-sm font-bold text-synora-accent uppercase mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4"/> AI Summary</h3>
@@ -1607,19 +1678,51 @@ function App() {
                     <FileText className="w-5 h-5 text-synora-accent" />
                     Editor
                   </h2>
-                  <button
-                    onClick={handleGenerateParagraph}
-                    disabled={isGeneratingParagraph || draftText.trim().length < 20}
-                    className="flex items-center gap-2 px-4 py-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-all disabled:opacity-50 text-sm font-medium"
-                  >
-                    {isGeneratingParagraph ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Co-Writing...</>
-                    ) : (
-                      <><Sparkles className="w-4 h-4" /> Draft Next Paragraph</>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleGenerateCover}
+                      disabled={isGeneratingCover || draftText.trim().length < 20}
+                      className="flex items-center gap-2 px-4 py-2 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-sm font-medium"
+                    >
+                      {isGeneratingCover ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Generating Cover...</>
+                      ) : (
+                        <><Image className="w-4 h-4 text-synora-accent" /> Generate Cover</>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleGenerateParagraph}
+                      disabled={isGeneratingParagraph || draftText.trim().length < 20}
+                      className="flex items-center gap-2 px-4 py-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-all disabled:opacity-50 text-sm font-medium"
+                    >
+                      {isGeneratingParagraph ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Co-Writing...</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4" /> Draft Next Paragraph</>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 
+                {coverData && (
+                  <div className="mb-6 relative group">
+                    <ProceduralCover
+                      title="My Article"
+                      theme={coverData.theme}
+                      gradient={coverData.gradient}
+                      patternOpacity={coverData.patternOpacity}
+                      mood={coverData.mood}
+                      className="w-full h-48 md:h-64"
+                    />
+                    <button 
+                      onClick={() => setCoverData(null)}
+                      className="absolute top-4 right-4 bg-black/50 hover:bg-red-500 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 <RichTextEditor 
                   content={draftText} 
                   onChange={setDraftText} 

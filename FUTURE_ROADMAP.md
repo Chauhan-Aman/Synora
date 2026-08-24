@@ -86,17 +86,16 @@
 
 ## 📋 Planned Features
 
-### Phase 12 — Local Image Generation
-**Goal:** Generate images, diagrams, and cover art directly from your knowledge.
-**Cost:** Free — runs locally on RTX 5070 (12GB VRAM)
+### Phase 12 — Visual Knowledge Generation (Diagrams & Procedural Covers)
+**Goal:** Generate dynamic structural diagrams and semantic cover art directly from your knowledge without overloading the GPU.
+**Cost:** Free — runs locally using existing Llama 3.2 model (No VRAM penalty).
 
-- [ ] Integrate Stable Diffusion XL / Flux via ComfyUI or diffusion backend
-- [ ] "Illustrate" button in Create Studio — generates a cover image for your article
-- [ ] Knowledge-to-Diagram — auto-generate visual diagrams from topics/entities
-- [ ] Gallery view in Knowledge tab for all generated images
-- [ ] Prompt suggestions based on your knowledge graph context
+- [ ] Knowledge-to-Diagram — auto-generate visual diagrams (Mind Maps, Flowcharts) using Mermaid JS from topics/entities
+- [ ] Procedural Semantic Cover Art — algorithmically generate beautiful CSS/SVG covers based on text sentiment/keywords
+- [ ] Diagram Viewer in Knowledge Tab — interactive zooming and panning for generated Mermaid graphs
+- [ ] "Illustrate" button in Create Studio — generates a procedural cover for your article
 
-**Tech:** ComfyUI (local), Stable Diffusion XL, Flux.1
+**Tech:** Llama 3.2 (Prompting), Mermaid JS, CSS Mesh Gradients
 
 ---
 

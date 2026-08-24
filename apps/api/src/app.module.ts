@@ -11,6 +11,7 @@ import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
 import { LearnModule } from './learn/learn.module';
 import { DiscoveryModule } from './discovery/discovery.module';
+import { VisualsModule } from './visuals/visuals.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { CreateModule } from './create/create.module';
@@ -33,6 +34,7 @@ import { CreateModule } from './create/create.module';
     LearnModule,
     DiscoveryModule,
     CreateModule,
+    VisualsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
