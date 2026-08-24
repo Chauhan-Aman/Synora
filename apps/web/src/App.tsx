@@ -67,6 +67,7 @@ function App() {
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [graphSearchQuery, setGraphSearchQuery] = useState("");
+  const [graphSearchSelectedIndex, setGraphSearchSelectedIndex] = useState(0);
   const [artifactDiagram, setArtifactDiagram] = useState<string | null>(null);
   const [isGeneratingDiagram, setIsGeneratingDiagram] = useState(false);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
@@ -1132,31 +1133,56 @@ function App() {
                             type="text"
                             placeholder="Search nodes..."
                             value={graphSearchQuery}
-                            onChange={e => setGraphSearchQuery(e.target.value)}
-                            className="w-full bg-synora-surface/90 backdrop-blur border border-synora-border rounded-lg pl-9 pr-3 py-2 text-sm focus:border-synora-accent outline-none text-white shadow-lg"
-                          />
-                        </div>
-                        {graphSearchQuery.trim() && (
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-synora-surface border border-synora-border rounded-lg shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
-                            {graphData.nodes.filter(n => n.name.toLowerCase().includes(graphSearchQuery.toLowerCase())).map(node => (
-                              <button
-                                key={node.id}
-                                onClick={() => {
+                            onChange={e => {
+                              setGraphSearchQuery(e.target.value);
+                              setGraphSearchSelectedIndex(0);
+                            }}
+                            onKeyDown={e => {
+                              const filtered = graphData.nodes.filter(n => n.name.toLowerCase().includes(graphSearchQuery.toLowerCase()));
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                setGraphSearchSelectedIndex(prev => Math.min(prev + 1, filtered.length - 1));
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                setGraphSearchSelectedIndex(prev => Math.max(prev - 1, 0));
+                              } else if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (filtered[graphSearchSelectedIndex]) {
+                                  const node = filtered[graphSearchSelectedIndex];
                                   setSelectedNode(node);
                                   fgRef.current?.centerAt(node.x, node.y, 1000);
                                   fgRef.current?.zoom(4, 1000);
                                   setGraphSearchQuery("");
-                                }}
-                                className="w-full text-left px-3 py-2 hover:bg-synora-accent/20 text-sm border-b border-synora-border/50 last:border-0 truncate"
-                              >
-                                {node.name}
-                              </button>
-                            ))}
-                            {graphData.nodes.filter(n => n.name.toLowerCase().includes(graphSearchQuery.toLowerCase())).length === 0 && (
-                              <div className="p-3 text-sm text-synora-text-secondary text-center">No nodes found</div>
-                            )}
-                          </div>
-                        )}
+                                }
+                              }
+                            }}
+                            className="w-full bg-synora-surface/90 backdrop-blur border border-synora-border rounded-lg pl-9 pr-3 py-2 text-sm focus:border-synora-accent outline-none text-white shadow-lg"
+                          />
+                        </div>
+                        {graphSearchQuery.trim() && (() => {
+                          const filtered = graphData.nodes.filter(n => n.name.toLowerCase().includes(graphSearchQuery.toLowerCase()));
+                          return (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-synora-surface border border-synora-border rounded-lg shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
+                              {filtered.map((node, index) => (
+                                <button
+                                  key={node.id}
+                                  onClick={() => {
+                                    setSelectedNode(node);
+                                    fgRef.current?.centerAt(node.x, node.y, 1000);
+                                    fgRef.current?.zoom(4, 1000);
+                                    setGraphSearchQuery("");
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-sm border-b border-synora-border/50 last:border-0 truncate transition-colors ${graphSearchSelectedIndex === index ? 'bg-synora-accent/20' : 'hover:bg-synora-accent/10'}`}
+                                >
+                                  {node.name}
+                                </button>
+                              ))}
+                              {filtered.length === 0 && (
+                                <div className="p-3 text-sm text-synora-text-secondary text-center">No nodes found</div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
 
