@@ -228,7 +228,25 @@ export class KnowledgeController {
       if (!ollamaResponse.ok) throw new Error('Failed to generate insights');
       
       const data = await ollamaResponse.json();
-      let insightsList = JSON.parse(data.response);
+      let responseText = data.response.trim();
+      
+      // Strip markdown codeblocks
+      if (responseText.startsWith('```')) {
+        const lines = responseText.split('\n');
+        lines.shift(); // remove ```json
+        if (lines[lines.length - 1].startsWith('```')) {
+          lines.pop(); // remove closing ```
+        }
+        responseText = lines.join('\n');
+      }
+
+      let insightsList;
+      try {
+        insightsList = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse insights JSON:", responseText);
+        insightsList = [];
+      }
       
       if (!Array.isArray(insightsList)) {
         if (insightsList && insightsList.insights && Array.isArray(insightsList.insights)) {
