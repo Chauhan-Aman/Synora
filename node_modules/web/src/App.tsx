@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Network, Save, X, Search, Moon, Sun, 
   BrainCircuit, Layout, BookOpen, Compass,
-  ChevronRight, Library, Shield, User, Map, CheckCircle2, Star, Clock, Zap, Target,
+  ChevronRight, Library, Shield, User, Map, CheckCircle2, CheckCircle, Star, Clock, Zap, Target,
   RefreshCw, Settings2, Trash2, ArrowRight,
   TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow
 } from 'lucide-react';
