@@ -70,7 +70,7 @@ let ChatController = ChatController_1 = class ChatController {
             let searchQuery = query;
             const agentLogs = [];
             if (history && history.length > 0) {
-                const historyText = history.slice(-4).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+                const historyText = history.slice(-6).map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.content}`).join('\n');
                 const rewritePrompt = `Given the following conversation history, rewrite the user's latest query to be a standalone search query. Replace pronouns (he, she, it, they) with the actual entities they refer to from the history. DO NOT answer the question, ONLY return the rewritten query text.
         
 History:
@@ -242,25 +242,20 @@ Reply with ONLY the word "YES" or "NO".`;
                     agentLogs.push({ action: 'Web Search', status: 'error', message: 'Web search failed.' });
                 }
             }
-            let historyContext = "";
-            if (history && history.length > 0) {
-                historyContext = "CONVERSATION HISTORY:\n" + history.slice(-5).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n') + "\n\n";
-            }
-            const prompt = `
-You are Synora, an intelligent and friendly personal assistant. 
+            const prompt = `You are Synora, an intelligent and friendly personal assistant. 
 You have access to the user's personal knowledge graph, and you can also autonomously search the web if needed.
 
 If the user is just saying hello or asking a general conversational question, answer in a friendly, conversational manner.
 If the user is asking a question that requires specific knowledge, try to answer it using the provided context below. 
 If the context does not contain the answer, you may use your own general knowledge to answer, but please mention that you are doing so.
 
-${historyContext}
 CONTEXT:
 ${contextText || "No context available."}
 
-QUESTION:
-${query}
-`;
+CONVERSATION HISTORY:
+${history && history.length > 0 ? history.slice(-8).map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.content}`).join('\n') : ''}
+USER: ${query}
+ASSISTANT:`;
             this.logger.log(`Generating final answer using Llama 3.2...`);
             const generateResponse = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',
