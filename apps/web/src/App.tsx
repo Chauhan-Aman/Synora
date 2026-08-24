@@ -6,7 +6,7 @@ import {
   RefreshCw, Settings2, Trash2, ArrowRight,
   TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow
 } from 'lucide-react';
-import { ForceGraph2D } from 'react-force-graph';
+import ForceGraph2D from 'react-force-graph-2d';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
 import { ProceduralCover } from './components/ProceduralCover';
