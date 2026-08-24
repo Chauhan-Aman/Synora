@@ -228,7 +228,15 @@ export class KnowledgeController {
       if (!ollamaResponse.ok) throw new Error('Failed to generate insights');
       
       const data = await ollamaResponse.json();
-      const insightsList = JSON.parse(data.response);
+      let insightsList = JSON.parse(data.response);
+      
+      if (!Array.isArray(insightsList)) {
+        if (insightsList && insightsList.insights && Array.isArray(insightsList.insights)) {
+          insightsList = insightsList.insights;
+        } else {
+          insightsList = [];
+        }
+      }
 
       // Save to database
       for (const insight of insightsList) {

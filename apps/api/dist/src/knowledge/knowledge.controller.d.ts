@@ -47,10 +47,10 @@ export declare class KnowledgeController {
         }[];
         collections: {
             id: string;
+            name: string;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
-            name: string;
         }[];
     }[]>;
     getCollections(user: any): Promise<({
@@ -61,48 +61,48 @@ export declare class KnowledgeController {
         }[];
     } & {
         id: string;
+        name: string;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        name: string;
     })[]>;
     createCollection(user: any, body: {
         name: string;
     }): Promise<{
         id: string;
+        name: string;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        name: string;
     }>;
     addArtifactToCollection(user: any, artifactId: string, body: {
         collectionId: string;
     }): Promise<{
         id: string;
+        userId: string;
+        type: string;
         title: string | null;
         sourceUrl: string | null;
         content: string | null;
-        type: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
     }>;
     getInsights(user: any): Promise<{
         id: string;
-        title: string;
-        type: string;
-        createdAt: Date;
         userId: string;
+        type: string;
+        title: string;
+        createdAt: Date;
         description: string;
         sources: string[];
     }[]>;
     generateInsights(user: any): Promise<{
         id: string;
-        title: string;
-        type: string;
-        createdAt: Date;
         userId: string;
+        type: string;
+        title: string;
+        createdAt: Date;
         description: string;
         sources: string[];
     }[]>;

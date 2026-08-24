@@ -109,7 +109,7 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
                     }
                 }
                 catch (imgErr) {
-                    this.logger.warn(`Failed to fetch image for ${rec.title}: ${imgErr.message}`);
+                    this.logger.debug(`Could not fetch image for ${rec.title}, using fallback.`);
                 }
                 const created = await this.prisma.recommendation.create({
                     data: {

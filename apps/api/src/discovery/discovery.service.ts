@@ -107,7 +107,7 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
             imageUrl = imageRes.results[0].image;
           }
         } catch (imgErr) {
-          this.logger.warn(`Failed to fetch image for ${rec.title}: ${imgErr.message}`);
+          this.logger.debug(`Could not fetch image for ${rec.title}, using fallback.`);
         }
 
         const created = await this.prisma.recommendation.create({
