@@ -41,7 +41,7 @@ export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps)
   // Dimensions
   const size = 600;
   const center = size / 2;
-  const innerRadius = 90;
+  const innerRadius = 115; // Increased to give more room in the center
   const outerRadius = 280;
   
   // When only 1 item, it should take up the whole circle.
@@ -189,49 +189,47 @@ export function RadialMenu({ items, title, onClose, onSelect }: RadialMenuProps)
             strokeWidth="2" 
           />
           
-          <foreignObject x={center - 80} y={center - 60} width="160" height="100">
-            <div className="w-full h-full flex flex-col items-center justify-start pt-2">
-              <span className="text-white font-bold text-sm sm:text-base text-center leading-tight px-2 break-words">
+          <foreignObject x={center - (innerRadius - 5)} y={center - (innerRadius - 5)} width={(innerRadius - 5) * 2} height={(innerRadius - 5) * 2}>
+            <div className="w-full h-full flex flex-col items-center justify-center relative px-2">
+              <span className="text-white font-bold text-sm sm:text-base text-center leading-tight break-words mb-1 line-clamp-2">
                 {title}
               </span>
-              <span className="text-[#94a3b8] text-xs mt-1">
+              <span className="text-[#94a3b8] text-xs">
                 {items.length} items
               </span>
+              
               {totalPages > 1 && (
-                <span className="text-synora-accent/80 font-medium text-[10px] mt-0.5">
-                  Page {page + 1} of {totalPages}
-                </span>
+                <div className="flex items-center gap-3 mt-3">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setPage(p => Math.max(0, p - 1)); }}
+                    disabled={page === 0}
+                    className={`p-1.5 rounded-full transition-all ${page === 0 ? 'text-synora-border cursor-not-allowed opacity-30' : 'text-synora-text-secondary hover:text-white bg-synora-surface/80 hover:bg-synora-accent hover:shadow-lg border border-synora-border hover:border-synora-accent/50'}`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-synora-accent/80 font-medium text-[10px]">
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setPage(p => Math.min(totalPages - 1, p + 1)); }}
+                    disabled={page === totalPages - 1}
+                    className={`p-1.5 rounded-full transition-all ${page === totalPages - 1 ? 'text-synora-border cursor-not-allowed opacity-30' : 'text-synora-text-secondary hover:text-white bg-synora-surface/80 hover:bg-synora-accent hover:shadow-lg border border-synora-border hover:border-synora-accent/50'}`}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               )}
+
+              {/* Close button at center bottom */}
+              <button 
+                onClick={onClose}
+                className="mt-3 text-synora-text-secondary hover:text-white bg-synora-surface/50 hover:bg-red-500/80 rounded-full p-2 transition-all border border-transparent hover:border-red-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </foreignObject>
         </svg>
-
-        {/* Close button at center */}
-        <button 
-          onClick={onClose}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-10 text-synora-text-secondary hover:text-white bg-synora-surface/50 hover:bg-red-500/80 rounded-full p-2 transition-all border border-transparent hover:border-red-400 z-10"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        {/* Prev / Next buttons */}
-        {totalPages > 1 && (
-          <>
-            <button 
-              onClick={(e) => { e.stopPropagation(); setPage(p => Math.max(0, p - 1)); }}
-              disabled={page === 0}
-              className={`absolute top-1/2 left-1/2 -translate-y-1/2 -ml-[68px] p-1.5 rounded-full z-10 transition-all ${page === 0 ? 'text-synora-border cursor-not-allowed opacity-30' : 'text-synora-text-secondary hover:text-white bg-synora-surface/80 hover:bg-synora-accent hover:shadow-lg hover:shadow-synora-accent/50 border border-synora-border hover:border-synora-accent/50'}`}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); setPage(p => Math.min(totalPages - 1, p + 1)); }}
-              disabled={page === totalPages - 1}
-              className={`absolute top-1/2 left-1/2 -translate-y-1/2 ml-[44px] p-1.5 rounded-full z-10 transition-all ${page === totalPages - 1 ? 'text-synora-border cursor-not-allowed opacity-30' : 'text-synora-text-secondary hover:text-white bg-synora-surface/80 hover:bg-synora-accent hover:shadow-lg hover:shadow-synora-accent/50 border border-synora-border hover:border-synora-accent/50'}`}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </>
-        )}
       </div>
     </div>
   );
