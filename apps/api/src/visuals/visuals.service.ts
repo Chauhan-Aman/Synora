@@ -13,6 +13,11 @@ I will give you a text. Your task is to extract the key concepts and relationshi
 Only output the raw Mermaid code block. Do NOT include markdown \`\`\`mermaid backticks, just the raw code.
 Do not include any other text, explanation, or HTML.
 
+CRITICAL RULES FOR MERMAID SYNTAX:
+1. NEVER use hyphens, dashes, or special punctuation (like -, :, ;, (, ), [, ]) in node names, as they break the Mermaid syntax.
+2. Keep node names extremely short (1-4 words). Do NOT output long sentences or paragraphs.
+3. If a node name must contain spaces or special characters, wrap it in double quotes (e.g., id("Node Name Here")) or standard shapes like id((Node Name)).
+
 Example for mindmap:
 mindmap
   root((Central Topic))
