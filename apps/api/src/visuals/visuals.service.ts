@@ -17,6 +17,7 @@ CRITICAL RULES FOR MERMAID SYNTAX:
 1. NEVER use hyphens, dashes, or special punctuation (like -, :, ;, (, ), [, ]) in node names, as they break the Mermaid syntax.
 2. Keep node names extremely short (1-4 words). Do NOT output long sentences or paragraphs.
 3. If a node name must contain spaces or special characters, wrap it in double quotes (e.g., id("Node Name Here")) or standard shapes like id((Node Name)).
+4. DO NOT use PlantUML syntax (like @startmindmap or @endmindmap). You MUST use valid Mermaid JS syntax starting with 'mindmap' or 'flowchart'.
 
 Example for mindmap:
 mindmap
@@ -50,6 +51,9 @@ Generate a ${type} diagram for the following text:
       // Clean up the output to ensure it's just raw mermaid code
       let diagram = data.response.trim();
       diagram = diagram.replace(/```mermaid\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      // If Llama mistakenly outputs PlantUML, forcefully convert it to Mermaid syntax
+      diagram = diagram.replace(/@startmindmap/gi, 'mindmap').replace(/@endmindmap/gi, '').trim();
       
       // Fallback if empty
       if (!diagram) {
