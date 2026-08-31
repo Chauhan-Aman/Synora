@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { LearnModule } from './learn/learn.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { VisualsModule } from './visuals/visuals.module';
+import { PublishModule } from './publish/publish.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { CreateModule } from './create/create.module';
@@ -35,6 +36,7 @@ import { CreateModule } from './create/create.module';
     DiscoveryModule,
     CreateModule,
     VisualsModule,
+    PublishModule,
   ],
   controllers: [AppController],
   providers: [AppService],
