@@ -42,6 +42,12 @@ export function DiagramViewer({ code, className = '' }: DiagramViewerProps) {
           console.error("Mermaid Render Error:", err);
           setError(err.message || 'Failed to render diagram');
           setLoading(false);
+          
+          // Mermaid occasionally leaves stranded error SVGs in the DOM body when it fails
+          // Clean them up manually to prevent them from showing at the bottom of the screen
+          document.querySelectorAll('svg[id^="dmermaid"]').forEach(el => {
+            el.remove();
+          });
         }
       }
     };
