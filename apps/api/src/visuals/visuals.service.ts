@@ -18,7 +18,7 @@ CRITICAL RULES FOR MERMAID SYNTAX:
 2. Keep node names extremely short (1-4 words). Do NOT output long sentences or paragraphs.
 3. If a node name must contain spaces or special characters, wrap it in double quotes (e.g., id("Node Name Here")) or standard shapes like id((Node Name)).
 4. DO NOT use PlantUML syntax (like @startmindmap or @endmindmap). You MUST use valid Mermaid JS syntax starting with 'mindmap' or 'flowchart'.
-
+5. For mindmaps, STRICT INDENTATION IS REQUIRED. You must use EXACTLY 2 spaces per indentation level. Never output an unindented node after the root, as that causes a "multiple roots" parsing error.
 Example for mindmap:
 mindmap
   root((Central Topic))
