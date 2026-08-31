@@ -1864,17 +1864,6 @@ function App() {
                       ) : (
                         <><ImageIcon className="w-4 h-4 text-synora-accent" /> Generate Cover</>
                       )}
-
-
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
                     </button>
                     <button
                       onClick={handleGenerateParagraph}
@@ -2056,7 +2045,7 @@ function App() {
           
         
 
-          {/* PUBLISH TAB */}
+      {/* PUBLISH TAB */}
       {activeTab === 'PUBLISH' && (
         <div className="w-full flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
           <div className="max-w-4xl mx-auto">
@@ -2235,6 +2224,15 @@ function App() {
                             ))}
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 </div>
       </div>
 
@@ -2358,7 +2356,7 @@ function App() {
         </div>
       )}
 
-      
+
 
     </div>
   );
