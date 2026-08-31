@@ -61,6 +61,12 @@ Generate a ${type} diagram for the following text:
       // If Llama mistakenly outputs PlantUML, forcefully convert it to Mermaid syntax
       diagram = diagram.replace(/@startmindmap/gi, 'mindmap').replace(/@endmindmap/gi, '').trim();
       
+      // Forcefully truncate diagram to max 20 lines to prevent extreme compression
+      const lines = diagram.split('\n');
+      if (lines.length > 20) {
+        diagram = lines.slice(0, 20).join('\n');
+      }
+      
       // Fallback if empty
       if (!diagram) {
         return type === 'mindmap' ? 'mindmap\n  root((No data extracted))' : 'flowchart LR\n  A[No data extracted]';
