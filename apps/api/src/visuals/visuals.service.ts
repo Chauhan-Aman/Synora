@@ -20,6 +20,7 @@ CRITICAL RULES FOR MERMAID SYNTAX:
 4. DO NOT use PlantUML syntax (like @startmindmap or @endmindmap). You MUST use valid Mermaid JS syntax starting with 'mindmap' or 'flowchart'.
 5. For mindmaps, STRICT INDENTATION IS REQUIRED. You must use EXACTLY 2 spaces per indentation level. Never output an unindented node after the root, as that causes a "multiple roots" parsing error.
 6. HIERARCHY IS MANDATORY. Do NOT attach 50 items directly to the root. You MUST group concepts into logical parent branches (e.g., categories) so the graph has depth, not just a massive flat list. Maximum 5-7 direct children per branch.
+7. MAX 15-20 NODES TOTAL: Do not extract every single detail from the text. Summarize and keep only the most important, high-level concepts. If the graph has more than 20 nodes, it becomes unreadable.
 
 Example for mindmap:
 mindmap
