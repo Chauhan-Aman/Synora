@@ -116,11 +116,11 @@
 **Goal:** Extend the existing Chrome extension with power-user features.
 **Cost:** Free
 
-- [ ] Right-click context menu: "Send to Synora"
-- [ ] Highlight text on any webpage → one-click capture selected text
+- [x] Right-click context menu: "Send to Synora"
+- [x] Highlight text on any webpage → one-click capture selected text
 - [ ] Auto-capture mode: silently saves every article you read (optional)
-- [ ] Popup mini-chat: ask Synora questions about the current page
-- [ ] Extension icon badge showing capture count
+- [x] Popup mini-chat: ask Synora questions about the current page
+- [x] Extension icon badge showing capture count
 
 ---
 

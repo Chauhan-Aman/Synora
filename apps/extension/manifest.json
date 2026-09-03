@@ -1,16 +1,33 @@
 {
   "manifest_version": 3,
   "name": "Synora Web Clipper",
-  "version": "1.0.0",
-  "description": "Instantly capture web pages to your private Synora Knowledge Graph.",
+  "version": "2.0.0",
+  "description": "Capture pages, highlights, and chat with your private Synora Knowledge Graph.",
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_badge_text": ""
   },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "contextMenus",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://*/*",
+    "http://*/*"
   ]
 }

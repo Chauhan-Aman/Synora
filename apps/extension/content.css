@@ -1,0 +1,75 @@
+/* Synora Content Script — Floating Button Styles */
+
+#synora-float-btn {
+  all: initial;
+  position: absolute;
+  z-index: 2147483646;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1);
+  opacity: 0;
+  transform: translateY(4px) scale(0.97);
+  transition: opacity 0.18s ease, transform 0.18s ease, background 0.15s, border-color 0.15s;
+  pointer-events: all;
+}
+
+#synora-float-btn.synora-btn-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#synora-float-btn.synora-btn-hide {
+  opacity: 0;
+  transform: translateY(4px) scale(0.95);
+}
+
+#synora-float-btn:hover {
+  background: rgba(30, 41, 59, 0.98);
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(59, 130, 246, 0.15);
+}
+
+#synora-float-btn svg {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+#synora-float-btn.synora-btn-saving {
+  opacity: 0.8;
+  cursor: wait;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+#synora-float-btn.synora-btn-success {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #34d399;
+}
+
+#synora-float-btn.synora-btn-success svg {
+  color: #34d399;
+}
+
+#synora-float-btn.synora-btn-error {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+
+#synora-float-btn.synora-btn-error svg {
+  color: #f87171;
+}
