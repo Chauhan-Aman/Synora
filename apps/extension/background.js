@@ -126,12 +126,12 @@ async function updateBadge() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/knowledge`, {
+      const res = await fetch(`${API_URL}/knowledge/artifacts`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) return;
       const data = await res.json();
-      const count = data.artifacts?.length || 0;
+      const count = data.length || 0;
       chrome.action.setBadgeText({ text: count > 99 ? '99+' : String(count) });
     } catch {
       chrome.action.setBadgeText({ text: '' });

@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ message: question })
+          body: JSON.stringify({ query: question })
         });
 
         if (!res.ok || !res.body) throw new Error('Chat unavailable');
