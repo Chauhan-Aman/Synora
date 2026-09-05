@@ -185,30 +185,53 @@ export class KnowledgeController {
 
   @Post('insights/generate')
   async generateInsights(@CurrentUser() user: any) {
-    // 1. Fetch topics and recent artifacts to build context
-    const topics = await this.prisma.topic.findMany({
-      where: { userId: user.userId },
-      take: 20,
-      orderBy: { artifacts: { _count: 'desc' } }
+    // 1. Fetch recent artifacts to build a rich chronological context
+    const artifacts = await this.prisma.artifact.findMany({
+      where: { userId: user.userId, summary: { isNot: null } },
+      take: 30,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        summary: true,
+        topics: { select: { name: true } }
+      }
     });
 
-    const topicNames = topics.map(t => t.name).join(', ');
+    // Reverse to chronological order for temporal tracking
+    const chronologicalArtifacts = artifacts.reverse();
+
+    let contextText = '';
+    for (const a of chronologicalArtifacts) {
+      const date = a.createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
+      const topicNames = a.topics.map(t => t.name).join(', ') || 'General';
+      const summary = a.summary?.text || 'No summary available.';
+      const title = a.title || 'Untitled';
+      
+      contextText += `[${date}] Title: "${title}" | Topics: [${topicNames}]\nSummary: ${summary}\n\n`;
+    }
+
+    if (contextText.length > 6000) {
+      contextText = contextText.substring(0, 6000) + '... (truncated)';
+    }
 
     const prompt = `
-      You are an AI specialized in analyzing a user's knowledge graph to find GAPS and CONFLICTS.
+      You are an AI specialized in analyzing a user's personal knowledge graph to find GAPS, CONFLICTS, and EVOLUTION of ideas.
       
-      User's Top Topics: ${topicNames}
+      Here is a chronological list of the user's recent knowledge captures:
+      
+      ${contextText}
 
-      Identify 2 Knowledge Gaps (topics the user should learn next to connect their existing knowledge) 
-      and 1 Potential Conflict or Nuance (a complex intersection of these topics).
+      Analyze the semantic content of these summaries and identify exactly:
+      1. One "GAP": A critical missing concept or bridge that connects two or more of their topics.
+      2. One "CONFLICT": A contradiction, opposing viewpoint, or nuanced tension present within the captured facts/summaries.
+      3. One "EVOLUTION": A temporal analysis showing how their understanding or focus on a specific topic has changed or deepened chronologically over time.
 
-      Respond ONLY with a valid JSON array of objects matching this schema:
+      Respond ONLY with a valid JSON array of objects matching this exact schema:
       [
         {
-          "type": "GAP" | "CONFLICT",
-          "title": "Short title",
-          "description": "Detailed explanation of the gap or conflict",
-          "sources": ["Topic 1", "Topic 2"]
+          "type": "GAP" | "CONFLICT" | "EVOLUTION",
+          "title": "Short punchy title",
+          "description": "Detailed 2-3 sentence explanation of the insight based strictly on the provided context.",
+          "sources": ["Topic 1", "Topic 2", "Or Artifact Title"]
         }
       ]
     `;

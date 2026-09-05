@@ -1171,9 +1171,13 @@ function App() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {insights.map(insight => (
                             <div key={insight.id} className="bg-synora-surface border border-synora-border p-6 rounded-xl relative overflow-hidden group">
-                              <div className={`absolute top-0 left-0 w-full h-1 ${insight.type === 'GAP' ? 'bg-orange-500' : 'bg-red-500'}`}></div>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border mb-3 inline-block ${insight.type === 'GAP' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                {insight.type === 'GAP' ? 'KNOWLEDGE GAP' : 'CONFLICT DETECTED'}
+                              <div className={`absolute top-0 left-0 w-full h-1 ${insight.type === 'GAP' ? 'bg-orange-500' : insight.type === 'EVOLUTION' ? 'bg-purple-500' : 'bg-red-500'}`}></div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border mb-3 inline-block ${
+                                insight.type === 'GAP' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 
+                                insight.type === 'EVOLUTION' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
+                                'bg-red-500/10 text-red-400 border-red-500/20'
+                              }`}>
+                                {insight.type === 'GAP' ? 'KNOWLEDGE GAP' : insight.type === 'EVOLUTION' ? 'TEMPORAL EVOLUTION' : 'CONFLICT DETECTED'}
                               </span>
                               <h4 className="text-lg font-bold text-white mb-2 leading-snug">{insight.title}</h4>
                               <p className="text-sm text-synora-text-secondary leading-relaxed mb-4">{insight.description}</p>
