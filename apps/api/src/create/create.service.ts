@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelRouter } from '../common/model-router';
 
 @Injectable()
 export class CreateService {
@@ -78,7 +79,7 @@ ${draftText}
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: model || 'llama3.2',
+          model: ModelRouter.getBestModel('DRAFTING', model),
           prompt,
           stream: false
         })
@@ -126,7 +127,7 @@ ${suggestedParagraph}
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: model || 'llama3.2',
+          model: ModelRouter.getBestModel('DRAFTING', model),
           prompt,
           stream: false
         })

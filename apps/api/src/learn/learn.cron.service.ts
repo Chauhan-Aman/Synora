@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelRouter } from '../common/model-router';
 
 @Injectable()
 export class LearnCronService {
@@ -78,7 +79,7 @@ export class LearnCronService {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama3.2',
+            model: ModelRouter.getBestModel('EXTRACTION'),
             prompt: prompt,
             stream: false,
             format: 'json'

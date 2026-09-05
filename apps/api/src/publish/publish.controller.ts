@@ -1,5 +1,6 @@
 import { Controller, Post, Body, HttpStatus, Logger, UseGuards, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { ModelRouter } from '../common/model-router';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -56,11 +57,12 @@ export class PublishController {
     return chunks.join('\n\n');
   }
 
-  private async streamFromOllama(prompt: string, res: Response): Promise<void> {
+  private async streamFromOllama(prompt: string, res: Response, modelParam?: string): Promise<void> {
+    const targetModel = ModelRouter.getBestModel('DRAFTING', modelParam);
     const generateResponse = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'llama3.2', prompt, stream: true }),
+      body: JSON.stringify({ model: targetModel, prompt, stream: true }),
     });
 
     if (!generateResponse.ok) throw new Error('Failed to reach Ollama');
@@ -123,7 +125,7 @@ INSTRUCTIONS:
 
 Begin the blog post now:`;
 
-      await this.streamFromOllama(prompt, res);
+      await this.streamFromOllama(prompt, res, model);
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
     } catch (error) {
@@ -166,7 +168,7 @@ INSTRUCTIONS:
 
 Begin the LinkedIn post now:`;
 
-      await this.streamFromOllama(prompt, res);
+      await this.streamFromOllama(prompt, res, model);
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
     } catch (error) {
@@ -208,7 +210,7 @@ INSTRUCTIONS:
 
 Begin the Twitter thread now:`;
 
-      await this.streamFromOllama(prompt, res);
+      await this.streamFromOllama(prompt, res, model);
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
     } catch (error) {

@@ -141,12 +141,12 @@
 **Goal:** Leverage the RTX 5070 for more powerful local inference.
 **Cost:** Free
 
-- [ ] Llama 3.1 8B Instruct (better reasoning, fits in 12GB)
+- [x] Llama 3.1 8B Instruct (better reasoning, fits in 12GB)
+- [x] Automatic model selection based on task type
 - [ ] Gemma 2 9B (Google's efficient model)
 - [ ] DeepSeek Coder v2 (for code-related knowledge)
 - [ ] Qwen 2.5 (multilingual support)
 - [ ] Model A/B testing — compare outputs from different models side-by-side
-- [ ] Automatic model selection based on task type
 
 ---
 

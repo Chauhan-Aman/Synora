@@ -1,5 +1,6 @@
 import { Controller, Post, Body, HttpException, HttpStatus, Logger, UseGuards, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { ModelRouter } from '../common/model-router';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -26,7 +27,7 @@ export class ChatController {
     @Body('forceWebSearch') forceWebSearch?: boolean,
     @Body('model') modelParam?: string
   ) {
-    const targetModel = modelParam || 'llama3.2';
+    const targetModel = ModelRouter.getBestModel('REASONING', modelParam);
     if (!query) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }

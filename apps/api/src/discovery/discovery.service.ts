@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelRouter } from '../common/model-router';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { search, searchImages } from 'duck-duck-scrape';
@@ -8,7 +9,6 @@ import { search, searchImages } from 'duck-duck-scrape';
 export class DiscoveryService {
   private readonly logger = new Logger(DiscoveryService.name);
   private readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
-  private readonly OLLAMA_MODEL = 'llama3.2';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -84,7 +84,7 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: this.OLLAMA_MODEL,
+          model: ModelRouter.getBestModel('REASONING'),
           prompt,
           format: 'json',
           stream: false,
@@ -202,7 +202,7 @@ Do not use conversational filler or quotes. Just output the 2 sentences directly
       const response = await fetch(this.OLLAMA_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.OLLAMA_MODEL, prompt, stream: false }),
+        body: JSON.stringify({ model: ModelRouter.getBestModel('REASONING'), prompt, stream: false }),
       });
       const data = await response.json();
       return { profile: data.response };
@@ -243,7 +243,7 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
       const response = await fetch(this.OLLAMA_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.OLLAMA_MODEL, prompt, format: 'json', stream: false }),
+        body: JSON.stringify({ model: ModelRouter.getBestModel('REASONING'), prompt, format: 'json', stream: false }),
       });
 
       if (!response.ok) throw new Error("Failed to dive deeper");

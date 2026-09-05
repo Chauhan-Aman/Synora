@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelRouter } from '../common/model-router';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 
@@ -241,7 +242,7 @@ export class KnowledgeController {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: ModelRouter.getBestModel('REASONING'),
           prompt: prompt,
           stream: false,
           format: 'json'

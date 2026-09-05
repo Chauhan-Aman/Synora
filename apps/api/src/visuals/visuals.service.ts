@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ModelRouter } from '../common/model-router';
 
 @Injectable()
 export class VisualsService {
@@ -6,7 +8,7 @@ export class VisualsService {
 
   async generateDiagram(text: string, type: string): Promise<string> {
     try {
-      this.logger.log(`Generating ${type} diagram via Llama 3.2...`);
+      this.logger.log(`Generating ${type} diagram...`);
       
       const prompt = `You are an expert at generating Mermaid JS diagrams.
 I will give you a text. Your task is to extract the key concepts and relationships and output a valid Mermaid JS diagram of type: ${type}.
@@ -44,7 +46,7 @@ Generate a ${type} diagram for the following text:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: ModelRouter.getBestModel('REASONING'),
           prompt: prompt,
           stream: false,
           options: { temperature: 0.1 }
@@ -81,7 +83,7 @@ Generate a ${type} diagram for the following text:
 
   async generateCoverTheme(title: string, content: string): Promise<any> {
     try {
-      this.logger.log(`Generating procedural cover theme via Llama 3.2...`);
+      this.logger.log(`Generating procedural cover theme...`);
       
       const prompt = `You are an expert designer. Based on the following article title and content, determine a beautiful CSS gradient and visual theme.
 Title: "${title}"
@@ -100,7 +102,7 @@ Format:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3.2',
+          model: ModelRouter.getBestModel('REASONING'),
           prompt: prompt,
           stream: false,
           format: 'json',

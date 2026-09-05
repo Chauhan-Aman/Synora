@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import { ModelRouter } from '../../../common/model-router';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as cheerio from 'cheerio';
@@ -11,7 +12,6 @@ import * as Tesseract from 'tesseract.js';
 export class InferenceProcessor extends WorkerHost {
   private readonly logger = new Logger(InferenceProcessor.name);
   private readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
-  private readonly OLLAMA_MODEL = 'llama3.2'; // Default model
 
   constructor(private readonly prisma: PrismaService) {
     super();
@@ -29,7 +29,7 @@ export class InferenceProcessor extends WorkerHost {
 
   async process(job: Job<any, any, string>): Promise<any> {
     const { artifactId, model } = job.data;
-    const targetModel = model || this.OLLAMA_MODEL;
+    const targetModel = ModelRouter.getBestModel('EXTRACTION', model);
     this.logger.log(`Processing job ${job.id} for artifact ${artifactId} using model ${targetModel}`);
 
     const artifact = await this.prisma.artifact.findUnique({

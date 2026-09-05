@@ -239,7 +239,7 @@ function App() {
   const [revisionPrompt, setRevisionPrompt] = useState<string>("");
   const [isRevising, setIsRevising] = useState(false);
   const draftTimeoutRef = useRef<any>(null);
-  const [modelConfig, setModelConfig] = useState(localStorage.getItem('synora_model') || 'llama3.2');
+  const [modelConfig, setModelConfig] = useState(localStorage.getItem('synora_model') || 'auto');
 
   useEffect(() => {
     localStorage.setItem('synora_model', modelConfig);
@@ -2020,10 +2020,12 @@ function App() {
                         onChange={(e) => setModelConfig(e.target.value)}
                         className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm"
                       >
-                        <option value="llama3.2">llama3.2 (Default - Fast & Efficient)</option>
-                        <option value="llama3.1">llama3.1 (Higher accuracy)</option>
-                        <option value="mistral">mistral (Alternative)</option>
-                        <option value="phi3">phi3 (Lightweight)</option>
+                        <option value="auto">Auto (Task-based Selection) - Recommended</option>
+                        <option value="llama3.1">llama3.1 (Llama 3.1 8B Instruct)</option>
+                        <option value="llama3.2">llama3.2 (Fast & Lightweight)</option>
+                        <option value="deepseek-coder-v2">deepseek-coder-v2 (Coding & Technical)</option>
+                        <option value="gemma2">gemma2 (Creative & Drafting)</option>
+                        <option value="qwen2.5">qwen2.5 (Multilingual)</option>
                       </select>
                     </div>
                   </section>
