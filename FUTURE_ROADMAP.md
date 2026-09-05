@@ -128,9 +128,9 @@
 **Goal:** Make the Knowledge Graph smarter and more interactive.
 **Cost:** Free
 
-- [ ] Knowledge conflicts detection (contradicting information across sources)
-- [ ] Temporal knowledge tracking (how your understanding of a topic evolved over time)
-- [ ] Knowledge gaps analysis ("You know a lot about X but nothing about related topic Y")
+- [x] Knowledge conflicts detection (contradicting information across sources)
+- [x] Temporal knowledge tracking (how your understanding of a topic evolved over time)
+- [x] Knowledge gaps analysis ("You know a lot about X but nothing about related topic Y")
 - [ ] Collaborative knowledge sharing (export/import knowledge packs between users)
 - [ ] Annotation system — highlight and annotate specific chunks
 - [ ] Smart folders / collections for organizing artifacts
