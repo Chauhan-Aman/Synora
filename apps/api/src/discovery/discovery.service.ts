@@ -3,16 +3,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ModelRouter } from '../common/model-router';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { search, searchImages } from 'duck-duck-scrape';
+import { WebSearchService } from '../chat/web-search.service';
+import { LlmService } from '../common/llm.service';
 
 @Injectable()
 export class DiscoveryService {
   private readonly logger = new Logger(DiscoveryService.name);
-  private readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue('capture-queue') private captureQueue: Queue
+    @InjectQueue('capture-queue') private captureQueue: Queue,
+    private readonly webSearch: WebSearchService,
+    private readonly llmService: LlmService
   ) {}
 
   async getFeed(userId: string) {
@@ -80,32 +82,21 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
 `;
 
     try {
-      const generateResponse = await fetch(this.OLLAMA_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ModelRouter.getBestModel('REASONING'),
-          prompt,
-          format: 'json',
-          stream: false,
-        }),
+      const responseText = await this.llmService.generateText({
+        modelType: 'REASONING',
+        prompt,
+        format: 'json',
+        stream: false
       });
 
-      if (!generateResponse.ok) {
-        throw new Error('Failed to generate discovery feed from Ollama');
-      }
-
-      const data = await generateResponse.json();
-      const parsed = JSON.parse(data.response);
+      const parsed = JSON.parse(responseText);
 
       const createdRecs = [];
       for (const rec of parsed.recommendations) {
-        let imageUrl = null;
+        let imageUrl: string | null = null;
         try {
-          const imageRes = await searchImages(rec.title);
-          if (imageRes.results && imageRes.results.length > 0) {
-            imageUrl = imageRes.results[0].image;
-          }
+          // Use an open image search via Unsplash source CDN
+          imageUrl = `https://source.unsplash.com/400x300/?${encodeURIComponent(rec.title)}`;
         } catch (imgErr) {
           this.logger.debug(`Could not fetch image for ${rec.title}, using fallback.`);
         }
@@ -144,9 +135,9 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
     let content = '';
 
     try {
-      const searchRes = await search(recommendation.title);
-      if (searchRes.results && searchRes.results.length > 0) {
-        targetUrl = searchRes.results[0].url;
+      const results = await this.webSearch.search(recommendation.title, 1);
+      if (results.length > 0) {
+        targetUrl = results[0].url;
       }
     } catch (e) {
       this.logger.warn(`Search failed for ${recommendation.title}`);
@@ -199,13 +190,12 @@ Do not use conversational filler or quotes. Just output the 2 sentences directly
     `.trim();
 
     try {
-      const response = await fetch(this.OLLAMA_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: ModelRouter.getBestModel('REASONING'), prompt, stream: false }),
+      const responseText = await this.llmService.generateText({
+        modelType: 'REASONING',
+        prompt,
+        stream: false
       });
-      const data = await response.json();
-      return { profile: data.response };
+      return { profile: responseText };
     } catch (e) {
       this.logger.error("Failed to generate taste profile");
       return { profile: "An explorer of ideas, always seeking deeper connections across diverse domains." };
@@ -240,23 +230,20 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
     `.trim();
 
     try {
-      const response = await fetch(this.OLLAMA_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: ModelRouter.getBestModel('REASONING'), prompt, format: 'json', stream: false }),
+      const responseText = await this.llmService.generateText({
+        modelType: 'REASONING',
+        prompt,
+        format: 'json',
+        stream: false
       });
 
-      if (!response.ok) throw new Error("Failed to dive deeper");
-
-      const data = await response.json();
-      const parsed = JSON.parse(data.response);
+      const parsed = JSON.parse(responseText);
 
       const createdRecs = [];
       for (const rec of parsed.recommendations) {
-        let imageUrl = null;
+        let imageUrl: string | null = null;
         try {
-          const imageRes = await searchImages(rec.title);
-          if (imageRes.results && imageRes.results.length > 0) imageUrl = imageRes.results[0].image;
+          imageUrl = `https://source.unsplash.com/400x300/?${encodeURIComponent(rec.title)}`;
         } catch (e) {}
 
         const created = await this.prisma.recommendation.create({

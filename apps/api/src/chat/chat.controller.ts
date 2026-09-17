@@ -4,9 +4,9 @@ import { ModelRouter } from '../common/model-router';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { search } from 'duck-duck-scrape';
-import * as cheerio from 'cheerio';
 import { CaptureService } from '../capture/capture.service';
+import { WebSearchService } from './web-search.service';
+import { LlmService } from '../common/llm.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('chat')
@@ -15,7 +15,9 @@ export class ChatController {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly captureService: CaptureService
+    private readonly captureService: CaptureService,
+    private readonly webSearch: WebSearchService,
+    private readonly llmService: LlmService,
   ) {}
 
   @Post()
@@ -27,7 +29,6 @@ export class ChatController {
     @Body('forceWebSearch') forceWebSearch?: boolean,
     @Body('model') modelParam?: string
   ) {
-    const targetModel = ModelRouter.getBestModel('REASONING', modelParam);
     if (!query) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
@@ -57,19 +58,16 @@ Latest Query: ${query}
 Rewritten Query:`;
 
         try {
-          const rewriteRes = await fetch('http://localhost:11434/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: targetModel, prompt: rewritePrompt, stream: false }),
+          searchQuery = await this.llmService.generateText({
+            modelType: 'REASONING',
+            modelParam: modelParam,
+            prompt: rewritePrompt
           });
-          if (rewriteRes.ok) {
-            const d = await rewriteRes.json();
-            searchQuery = d.response.trim();
-            this.logger.log(`Rewrote query for search: "${searchQuery}"`);
-            const logMsg = { action: 'Query Rewrite', status: 'done', message: `Rewrote query to: "${searchQuery}"` };
-            agentLogs.push(logMsg as any);
-            sendLog(logMsg.action, logMsg.status, logMsg.message);
-          }
+          searchQuery = searchQuery.trim();
+          this.logger.log(`Rewrote query for search: "${searchQuery}"`);
+          const logMsg = { action: 'Query Rewrite', status: 'done', message: `Rewrote query to: "${searchQuery}"` };
+          agentLogs.push(logMsg as any);
+          sendLog(logMsg.action, logMsg.status, logMsg.message);
         } catch (e) {
           this.logger.error("Failed to rewrite query", e);
           const logMsg = { action: 'Query Rewrite', status: 'error', message: 'Failed to rewrite query.' };
@@ -80,7 +78,7 @@ Rewritten Query:`;
 
       this.logger.log(`Embedding user query: "${searchQuery}"`);
       // 1. Embed the query using Nomic Embed
-      const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
+      const embeddingResponse = await fetch(LlmService.EMBEDDING_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -156,17 +154,16 @@ Question: ${searchQuery}
 
 Reply with ONLY the word "YES" or "NO".`;
 
-      let needsWebSearch = forceWebSearch || false; // Default to true if no context, but wait, let's evaluate
+      let needsWebSearch = forceWebSearch || false; 
       
       if (!forceWebSearch && contextText) {
         try {
-          const evalRes = await fetch('http://localhost:11434/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: targetModel, prompt: evalPrompt, stream: false }),
+          const responseText = await this.llmService.generateText({
+            modelType: 'REASONING',
+            modelParam: modelParam,
+            prompt: evalPrompt
           });
-          const d = await evalRes.json();
-          const responseWord = d.response.trim().toUpperCase();
+          const responseWord = responseText.trim().toUpperCase();
           needsWebSearch = responseWord.includes('NO');
           this.logger.log(`Agent evaluation result: ${responseWord} -> Needs Web Search: ${needsWebSearch}`);
           const msg2 = { action: 'Context Evaluation', status: 'done', message: `LLM decided local context is ${needsWebSearch ? 'insufficient' : 'sufficient'}.` };
@@ -188,83 +185,35 @@ Reply with ONLY the word "YES" or "NO".`;
 
       if (needsWebSearch) {
         this.logger.log(`Executing Autonomous Web Search for: "${searchQuery}"`);
-        const msg3 = { action: 'Web Search', status: 'done', message: `Searching the Web for "${searchQuery}"` };
+        const msg3 = { action: 'Web Search', status: 'done', message: `Searching DuckDuckGo for "${searchQuery}"` };
         agentLogs.push(msg3 as any);
         sendLog(msg3.action, msg3.status, msg3.message);
+        
         try {
-          const bingRes = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          const bingHtml = await bingRes.text();
-          const $bing = cheerio.load(bingHtml);
-          const searchResults: {url: string, title: string}[] = [];
-          
-          $bing('li.b_algo h2 a').each((i, el) => {
-            const href = $bing(el).attr('href');
-            if (href && href.includes('u=a1')) {
-              const b64 = href.split('u=a1')[1].split('&')[0];
-              try {
-                const realUrl = Buffer.from(b64, 'base64').toString('utf8');
-                searchResults.push({ url: realUrl, title: $bing(el).text() });
-              } catch(e) {}
-            } else if (href && href.startsWith('http')) {
-              searchResults.push({ url: href, title: $bing(el).text() });
-            }
-          });
+          const webResults = await this.webSearch.search(searchQuery, 3);
 
-          // Take top 3 results
-          const topResults = searchResults.slice(0, 3);
-          
-          for (let i = 0; i < topResults.length; i++) {
-            const result = topResults[i];
-            this.logger.log(`Scraping web result: ${result.url}`);
-            
-            try {
-              // Fetch HTML
-              const pageRes = await fetch(result.url, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
-              });
-              const html = await pageRes.text();
-              const $ = cheerio.load(html);
-              
-              // Remove garbage
-              $('script, style, nav, footer, header, iframe, noscript').remove();
-              const text = $('body').text().replace(/\s+/g, ' ').trim();
-              
-              // Take first 2000 characters to fit in LLM context window
-              const snippet = text.substring(0, 2000);
-              
-              contextText += `\n\n[Web Search Result ${i + 1}] (${result.url}):\n${snippet}`;
-              sources.push(result.url);
-              const msg4 = { action: 'Web Scrape', status: 'done', message: `Scraped and extracted context from: ${result.url}` };
-              agentLogs.push(msg4 as any);
-              sendLog(msg4.action, msg4.status, msg4.message);
-              
-              // Asynchronously add to Knowledge Graph!
-              this.logger.log(`Pushing ${result.url} to Capture Queue for permanent indexing...`);
-              this.captureService.create({ type: 'WEB_SEARCH', sourceUrl: result.url }, user.userId).catch((e: any) => {
-                this.logger.error(`Failed to push web result to capture queue: ${e.message}`);
-              });
-              
-            } catch (scrapeErr) {
-              this.logger.error(`Failed to scrape ${result.url}`);
-              const msg5 = { action: 'Web Scrape', status: 'error', message: `Failed to scrape ${result.url}` };
-              agentLogs.push(msg5 as any);
-              sendLog(msg5.action, msg5.status, msg5.message);
-            }
-          }
-        } catch(searchErr) {
-          this.logger.error("Web search failed", searchErr);
-          const msg6 = { action: 'Web Search', status: 'error', message: 'Web search failed.' };
+          webResults.forEach((result, i) => {
+            contextText += `\n\n[Web Result ${i + 1}] (${result.url}):\n${result.content}`;
+            sources.push(result.url);
+
+            const msg4 = { action: 'Web Scrape', status: 'done', message: `Read context from: ${result.title}` };
+            agentLogs.push(msg4 as any);
+            sendLog(msg4.action, msg4.status, msg4.message);
+
+            // Asynchronously persist to Knowledge Graph
+            this.captureService
+              .create({ type: 'WEB_SEARCH', sourceUrl: result.url }, user.userId)
+              .catch((e: any) =>
+                this.logger.error(`Capture queue failed for ${result.url}: ${e.message}`),
+              );
+          });
+        } catch (searchErr: any) {
+          this.logger.error('Web search failed', searchErr);
+          const msg6 = { action: 'Web Search', status: 'error', message: 'Web search failed — answering from memory.' };
           agentLogs.push(msg6 as any);
           sendLog(msg6.action, msg6.status, msg6.message);
         }
       }
-      // -----------------------------------
-
-      // -----------------------------------
 
       const prompt = `You are Synora, an intelligent and friendly personal assistant. 
 You have access to the user's personal knowledge graph, and you can also autonomously search the web if needed.
@@ -281,45 +230,17 @@ ${history && history.length > 0 ? history.slice(-8).map(m => `${m.role === 'user
 USER: ${query}
 ASSISTANT:`;
 
-      this.logger.log(`Generating final answer using Llama 3.2...`);
+      this.logger.log(`Generating final answer...`);
       
-      // Send metadata sources now that all scrape is done
       res.write(`data: ${JSON.stringify({ type: 'metadata', sources })}\n\n`);
 
       // 4. Generate the final answer using Llama (streaming)
-      const generateResponse = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: targetModel,
-          prompt: prompt,
-          stream: true,
-        }),
-      });
-
-      if (!generateResponse.ok) {
-        throw new Error('Failed to generate answer from Ollama');
-      }
-
-      if (generateResponse.body) {
-        // Read the stream
-        const reader = generateResponse.body.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim() !== '');
-          for (const line of lines) {
-            try {
-              const data = JSON.parse(line);
-              if (data.response) {
-                res.write(`data: ${JSON.stringify({ type: 'text', text: data.response })}\n\n`);
-              }
-            } catch (e) {}
-          }
-        }
-      }
+      await this.llmService.streamToResponse({
+        modelType: 'REASONING',
+        modelParam: modelParam,
+        prompt: prompt,
+        stream: true
+      }, res);
       
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();

@@ -1,17 +1,16 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { ModelRouter } from '../../../common/model-router';
+import { ModelRouter } from '../../common/model-router';
+import { LlmService } from '../../common/llm.service';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
 import * as Tesseract from 'tesseract.js';
 
-
 @Processor('capture-processing')
 export class InferenceProcessor extends WorkerHost {
   private readonly logger = new Logger(InferenceProcessor.name);
-  private readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
 
   constructor(private readonly prisma: PrismaService) {
     super();
@@ -57,7 +56,6 @@ export class InferenceProcessor extends WorkerHost {
         $('script, style, nav, footer, iframe').remove();
         contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
 
-        // Save the extracted text back to the artifact
         await this.prisma.artifact.update({
           where: { id: artifactId },
           data: { content: contentToProcess.substring(0, 5000) },
@@ -78,7 +76,7 @@ export class InferenceProcessor extends WorkerHost {
         const imageBuffer = fs.readFileSync(artifact.content);
         const base64Image = imageBuffer.toString('base64');
         
-        const visionRes = await fetch(this.OLLAMA_URL, {
+        const visionRes = await fetch(LlmService.OLLAMA_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -129,7 +127,7 @@ export class InferenceProcessor extends WorkerHost {
       let extractedData;
 
       try {
-        const ollamaResponse = await fetch(this.OLLAMA_URL, {
+        const ollamaResponse = await fetch(LlmService.OLLAMA_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -154,7 +152,6 @@ export class InferenceProcessor extends WorkerHost {
 
       this.logger.log('Ollama extraction successful! Saving metadata to the database...');
 
-      // Save Title if present
       if (extractedData.title) {
         await this.prisma.artifact.update({
           where: { id: artifactId },
@@ -162,7 +159,6 @@ export class InferenceProcessor extends WorkerHost {
         });
       }
 
-      // Save Summary
       if (extractedData.summary) {
         await this.prisma.summary.create({
           data: {
@@ -173,7 +169,6 @@ export class InferenceProcessor extends WorkerHost {
         });
       }
 
-      // Save Topics
       if (Array.isArray(extractedData.topics)) {
         for (const topic of extractedData.topics) {
           await this.prisma.topic.upsert({
@@ -184,7 +179,6 @@ export class InferenceProcessor extends WorkerHost {
         }
       }
 
-      // Save Entities
       if (Array.isArray(extractedData.entities)) {
         for (const entity of extractedData.entities) {
           await this.prisma.entity.upsert({
@@ -195,7 +189,6 @@ export class InferenceProcessor extends WorkerHost {
         }
       }
 
-      // Save Flashcards
       if (Array.isArray(extractedData.flashcards)) {
         this.logger.log(`Saving ${extractedData.flashcards.length} flashcards...`);
         for (const card of extractedData.flashcards) {
@@ -219,7 +212,7 @@ export class InferenceProcessor extends WorkerHost {
         if (!chunkText.trim()) continue;
 
         try {
-          const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
+          const embeddingResponse = await fetch(LlmService.EMBEDDING_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -83,3 +83,21 @@
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-friendly, .print-friendly * {
+    visibility: visible;
+  }
+  .print-friendly {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: black !important;
+  }
+  .print-friendly h1, .print-friendly h2, .print-friendly h3, .print-friendly p, .print-friendly li {
+    color: black !important;
+  }
+}

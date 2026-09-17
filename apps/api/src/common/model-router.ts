@@ -31,23 +31,23 @@ export class ModelRouter {
     
     switch (taskCategory) {
       case 'REASONING':
-        // Llama 3.1 8B Instruct is great for deep reasoning
-        selectedModel = 'llama3.1';
+        // qwen2.5:14b has excellent deep reasoning and instruction following
+        selectedModel = 'qwen2.5:14b';
         break;
       case 'EXTRACTION':
-        // Extraction is fast and simple, Llama 3.1 or Gemma 2 
+        // Extraction is simpler — llama3.1 is fast and accurate enough
         selectedModel = 'llama3.1'; 
         break;
       case 'CODING':
-        // Coding tasks are best suited for deepseek coder
-        selectedModel = 'deepseek-coder-v2';
+        // qwen2.5-coder:14b is purpose-built for code tasks
+        selectedModel = 'qwen2.5-coder:14b';
         break;
       case 'DRAFTING':
-        // Fast generation, qwen2.5 or llama3.1
-        selectedModel = 'llama3.1';
+        // qwen2.5:14b produces high-quality long-form text
+        selectedModel = 'qwen2.5:14b';
         break;
       case 'VISION':
-        // Only vision models can process images
+        // llama3.2-vision if available, otherwise fallback
         selectedModel = 'llama3.2-vision';
         break;
       default:

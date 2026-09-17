@@ -24,6 +24,7 @@ model User {
   recommendations Recommendation[]
   collections  Collection[]
   insights     Insight[]
+  annotations  Annotation[]
 }
 
 model Artifact {
@@ -43,6 +44,7 @@ model Artifact {
   chunks    Chunk[]
   flashcards Flashcard[]
   collections Collection[]
+  annotations Annotation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -159,4 +161,18 @@ model Insight {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
+}
+
+model Annotation {
+  id         String   @id @default(uuid())
+  text       String
+  
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  artifactId String
+  artifact   Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

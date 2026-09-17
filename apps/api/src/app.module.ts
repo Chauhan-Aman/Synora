@@ -13,9 +13,11 @@ import { LearnModule } from './learn/learn.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { VisualsModule } from './visuals/visuals.module';
 import { PublishModule } from './publish/publish.module';
+import { CommonModule } from './common/common.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 import { CreateModule } from './create/create.module';
+import { AnnotationModule } from './annotation/annotation.module';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { CreateModule } from './create/create.module';
         port: 6379,
       },
     }),
+    CommonModule,
     CaptureModule,
     PrismaModule,
     InferenceModule,
@@ -35,6 +38,7 @@ import { CreateModule } from './create/create.module';
     LearnModule,
     DiscoveryModule,
     CreateModule,
+    AnnotationModule,
     VisualsModule,
     PublishModule,
   ],

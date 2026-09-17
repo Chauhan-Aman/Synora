@@ -4,7 +4,7 @@ import {
   BrainCircuit, Layout, BookOpen, Compass,
   ChevronRight, Library, Shield, User, Map, CheckCircle2, CheckCircle, Star, Clock, Zap, Target,
   RefreshCw, Settings2, Trash2, ArrowRight,
-  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image as ImageIcon, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow, Copy, Rss, MessageCircle, Briefcase, Download, CheckSquare, Square
+  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image as ImageIcon, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow, Copy, Rss, MessageCircle, Briefcase, Download, CheckSquare, Square, Printer, Mail
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -35,7 +35,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 
 type InputType = 'URL' | 'TEXT' | 'FILE' | 'VOICE';
 type Tab = 'CAPTURE' | 'KNOWLEDGE' | 'LEARN' | 'CHAT' | 'DISCOVER' | 'CREATE' | 'PUBLISH' | 'SETTINGS';
-type ContentFormat = 'blog' | 'linkedin' | 'twitter';
+type ContentFormat = 'blog' | 'linkedin' | 'twitter' | 'newsletter' | 'paper';
 type WritingStyle = 'professional' | 'conversational' | 'academic';
 
 interface Topic { id: string; name: string; count: number; }
@@ -116,6 +116,10 @@ function App() {
   const [artifactDiagram, setArtifactDiagram] = useState<string | null>(null);
   const [isGeneratingDiagram, setIsGeneratingDiagram] = useState(false);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
+  
+  // Smart Folders & Annotations State
+  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [newAnnotation, setNewAnnotation] = useState('');
 
   // Publish State
   const [publishFormat, setPublishFormat] = useState<ContentFormat>('blog');
@@ -132,6 +136,19 @@ function App() {
   useEffect(() => {
     setWikiSummary(null);
   }, [selectedNode]);
+
+  useEffect(() => {
+    if (selectedArtifact && token) {
+      fetch(`http://localhost:3000/annotations/artifact/${selectedArtifact.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => setAnnotations(Array.isArray(data) ? data : []))
+      .catch(console.error);
+    } else {
+      setAnnotations([]);
+    }
+  }, [selectedArtifact, token]);
 
   const fetchWiki = async (topic: string) => {
     setIsFetchingWiki(true);
@@ -1451,6 +1468,78 @@ function App() {
                             </div>
                           </div>
                         )}
+
+                        <div className="shrink-0">
+                          <h3 className="text-sm font-bold text-synora-text-secondary uppercase mb-4 flex items-center gap-2"><Edit3 className="w-4 h-4"/> Annotations</h3>
+                          <div className="space-y-4">
+                            <div className="flex gap-2">
+                              <input 
+                                type="text"
+                                placeholder="Add an annotation..."
+                                value={newAnnotation}
+                                onChange={e => setNewAnnotation(e.target.value)}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter' && newAnnotation.trim()) {
+                                    const res = await fetch(`http://localhost:3000/annotations/artifact/${selectedArtifact.id}`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                      body: JSON.stringify({ text: newAnnotation.trim() })
+                                    });
+                                    if (res.ok) {
+                                      const created = await res.json();
+                                      setAnnotations([created, ...annotations]);
+                                      setNewAnnotation('');
+                                    }
+                                  }
+                                }}
+                                className="flex-1 bg-synora-surface border border-synora-border rounded-lg px-4 py-2 text-sm focus:border-synora-accent outline-none"
+                              />
+                              <button 
+                                onClick={async () => {
+                                  if (!newAnnotation.trim()) return;
+                                  const res = await fetch(`http://localhost:3000/annotations/artifact/${selectedArtifact.id}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                    body: JSON.stringify({ text: newAnnotation.trim() })
+                                  });
+                                  if (res.ok) {
+                                    const created = await res.json();
+                                    setAnnotations([created, ...annotations]);
+                                    setNewAnnotation('');
+                                  }
+                                }}
+                                className="px-4 py-2 bg-synora-surface border border-synora-border hover:border-synora-accent text-synora-text-secondary hover:text-white rounded-lg transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              {annotations.map(ann => (
+                                <div key={ann.id} className="bg-synora-surface/50 border border-synora-border p-3 rounded-lg flex items-start justify-between group">
+                                  <p className="text-sm text-white/90">{ann.text}</p>
+                                  <button 
+                                    onClick={async () => {
+                                      const res = await fetch(`http://localhost:3000/annotations/${ann.id}`, {
+                                        method: 'DELETE',
+                                        headers: { 'Authorization': `Bearer ${token}` }
+                                      });
+                                      if (res.ok) {
+                                        setAnnotations(annotations.filter(a => a.id !== ann.id));
+                                      }
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-1 text-synora-text-secondary hover:text-red-400 transition-all shrink-0 ml-2"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                              {annotations.length === 0 && (
+                                <p className="text-sm text-synora-text-secondary italic">No annotations yet.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -2067,8 +2156,14 @@ function App() {
                 <div className="glass-panel p-5">
                   <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2"><Layers className="w-4 h-4 text-synora-accent" /> Format</h3>
                   <div className="space-y-2">
-                    {([['blog', 'Blog Post', FileText, 'Long-form article with sections'], ['linkedin', 'LinkedIn Post', Briefcase, 'Professional post with hashtags'], ['twitter', 'Twitter Thread', MessageCircle, '6 numbered tweets']] as const).map(([fmt, label, Icon, desc]) => (
-                      <button key={fmt} onClick={() => setPublishFormat(fmt)} className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${publishFormat === fmt ? 'border-synora-accent bg-synora-accent/10 text-white' : 'border-synora-border text-synora-text-secondary hover:border-synora-accent/50 hover:text-white'}`}>
+                    {([
+                      ['blog', 'Blog Post', FileText, 'Long-form article with sections'], 
+                      ['linkedin', 'LinkedIn Post', Briefcase, 'Professional post with hashtags'], 
+                      ['twitter', 'Twitter Thread', MessageCircle, '6 numbered tweets'],
+                      ['newsletter', 'Newsletter', Mail, 'Engaging email issue'],
+                      ['paper', 'Academic Paper', GraduationCap, 'Formal research paper']
+                    ] as const).map(([fmt, label, Icon, desc]) => (
+                      <button key={fmt} onClick={() => setPublishFormat(fmt as ContentFormat)} className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${publishFormat === fmt ? 'border-synora-accent bg-synora-accent/10 text-white' : 'border-synora-border text-synora-text-secondary hover:border-synora-accent/50 hover:text-white'}`}>
                         <Icon className="w-4 h-4 shrink-0" />
                         <div>
                           <div className="font-medium text-sm">{label}</div>
@@ -2160,7 +2255,9 @@ function App() {
                       {publishFormat === 'blog' && <FileText className="w-4 h-4 text-synora-accent" />}
                       {publishFormat === 'linkedin' && <Briefcase className="w-4 h-4 text-blue-400" />}
                       {publishFormat === 'twitter' && <MessageCircle className="w-4 h-4 text-sky-400" />}
-                      {publishFormat === 'blog' ? 'Blog Post Preview' : publishFormat === 'linkedin' ? 'LinkedIn Post Preview' : 'Twitter Thread Preview'}
+                      {publishFormat === 'newsletter' && <Mail className="w-4 h-4 text-emerald-400" />}
+                      {publishFormat === 'paper' && <GraduationCap className="w-4 h-4 text-purple-400" />}
+                      {publishFormat === 'blog' ? 'Blog Post Preview' : publishFormat === 'linkedin' ? 'LinkedIn Post Preview' : publishFormat === 'twitter' ? 'Twitter Thread Preview' : publishFormat === 'newsletter' ? 'Newsletter Preview' : 'Academic Paper Preview'}
                     </h3>
                     {publishOutput && (
                       <div className="flex gap-2">
@@ -2177,7 +2274,7 @@ function App() {
                         </button>
                         <button
                           onClick={() => {
-                            const ext = publishFormat === 'blog' ? 'md' : 'txt';
+                            const ext = publishFormat === 'blog' || publishFormat === 'paper' ? 'md' : 'txt';
                             const blob = new Blob([publishOutput], { type: 'text/plain' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
@@ -2187,6 +2284,12 @@ function App() {
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-synora-bg border border-synora-border rounded-lg text-xs text-synora-text-secondary hover:text-white hover:border-synora-accent/50 transition-all"
                         >
                           <Download className="w-3.5 h-3.5" /> Export
+                        </button>
+                        <button
+                          onClick={() => window.print()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-synora-bg border border-synora-border rounded-lg text-xs text-synora-text-secondary hover:text-white hover:border-synora-accent/50 transition-all"
+                        >
+                          <Printer className="w-3.5 h-3.5" /> Print PDF
                         </button>
                       </div>
                     )}
@@ -2201,10 +2304,12 @@ function App() {
                     )}
                     {(publishOutput || isPublishing) && (
                       <div className={`prose prose-invert prose-sm max-w-none ${publishFormat !== 'blog' ? 'font-sans whitespace-pre-wrap' : ''}`}>
-                        {publishFormat === 'blog' ? (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
-                            {publishOutput + (isPublishing ? '▍' : '')}
-                          </ReactMarkdown>
+                        {publishFormat === 'blog' || publishFormat === 'paper' || publishFormat === 'newsletter' ? (
+                          <div className="print-friendly">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
+                              {publishOutput + (isPublishing ? '▍' : '')}
+                            </ReactMarkdown>
+                          </div>
                         ) : publishFormat === 'linkedin' ? (
                           <div className="bg-synora-bg border border-synora-border rounded-xl p-5">
                             <div className="flex items-center gap-3 mb-4">

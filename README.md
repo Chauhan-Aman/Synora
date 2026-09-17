@@ -11,10 +11,11 @@ Chat directly with your notes using a streaming, agentic AI assistant that perfo
 ## 🌟 Key Features
 
 - **🌐 Autonomous Knowledge Capture:** Paste a URL and let the backend automatically scrape, clean, and extract entities, topics, and relationships to build your graph.
-- **🧠 100% Local AI:** Powered by **Ollama**, Synora uses local LLMs (`llama3.2` for generation, `nomic-embed-text` for embeddings) to ensure your personal data never leaves your machine.
+- **🧠 100% Local AI:** Powered by **Ollama**, Synora uses local LLMs (dynamically routing between `qwen2.5:14b`, `qwen2.5-coder:14b`, and `llama3.1`) and `nomic-embed-text` for embeddings to ensure your personal data never leaves your machine.
 - **🕸️ Interactive 2D Graph:** Visualize your brain! Explore topics, articles, and entities in a beautiful, physics-based force-directed graph.
 - **💬 Streaming Agentic Chat:** A professional-grade, SSE-streamed chat interface. The AI agent evaluates your local context, rewrites queries, and performs autonomous web searches if your local knowledge falls short.
 - **🧑‍💻 Developer Ready:** Features beautifully syntax-highlighted code blocks in the chat with click-to-copy functionality.
+- **📰 Content Generation & Insights:** Auto-generate newsletters, academic papers, and dynamic visual diagrams (MermaidJS) from your knowledge graph.
 
 ---
 
@@ -46,7 +47,7 @@ Synora is a modern monorepo built with performance, aesthetics, and modularity i
 3. **Ollama** installed and running (`http://localhost:11434`)
    - Pull required models: 
      ```bash
-     ollama run llama3.2
+     ollama run qwen2.5:14b
      ollama pull nomic-embed-text
      ```
 

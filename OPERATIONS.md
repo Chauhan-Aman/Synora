@@ -16,9 +16,9 @@ docker-compose up -d
 ### Step 2: Start the Local AI
 Open a terminal and ensure your local AI is running:
 ```bash
-ollama run llama3.2
+ollama run qwen2.5:14b
 ```
-* **Significance**: This boots up the LLM into your computer's RAM/VRAM. The backend will communicate with this at `http://localhost:11434` to perform extraction and RAG generation. (Ensure you have also run `ollama pull nomic-embed-text` previously for the embedding model).
+* **Significance**: This boots up the LLM into your computer's RAM/VRAM. The backend will communicate with this at `http://localhost:11434` to perform extraction and RAG generation. Our system dynamically routes to `qwen2.5:14b` for reasoning, `qwen2.5-coder:14b` for code, and `llama3.1` for extraction. (Ensure you have also run `ollama pull nomic-embed-text` previously for the embedding model).
 
 ### Step 3: Start the Backend API & Worker
 Open a new terminal, navigate to the API directory, and start NestJS:

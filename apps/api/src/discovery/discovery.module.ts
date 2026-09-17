@@ -3,6 +3,7 @@ import { DiscoveryService } from './discovery.service';
 import { DiscoveryController } from './discovery.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
+import { WebSearchService } from '../chat/web-search.service';
 
 @Module({
   imports: [
@@ -12,6 +13,6 @@ import { BullModule } from '@nestjs/bullmq';
     }),
   ],
   controllers: [DiscoveryController],
-  providers: [DiscoveryService],
+  providers: [DiscoveryService, WebSearchService],
 })
 export class DiscoveryModule {}
