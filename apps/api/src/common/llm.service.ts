@@ -18,21 +18,33 @@ export interface ChatMessage {
   tool_calls?: any[];
 }
 
+export interface AgentLoopCallbacks {
+  /** Called immediately when the LLM requests a tool call (before execution). */
+  onToolCall?: (toolName: string, args: any) => void;
+  /** Called after a tool has been executed and a result is available. */
+  onToolResult?: (toolName: string, result: string) => void;
+}
+
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
+
   public static readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
   public static readonly OLLAMA_CHAT_URL = 'http://localhost:11434/api/chat';
   public static readonly EMBEDDING_URL = 'http://localhost:11434/api/embeddings';
 
+  /** Maximum number of agent reasoning loops before forcing a response. */
+  private static readonly MAX_AGENT_LOOPS = 8;
+
   constructor(private readonly toolRegistry: ToolRegistryService) {}
 
   /**
-   * Generates a single string response.
+   * Generates a single text response from the LLM without streaming.
+   * Suitable for quick extraction, routing, and evaluation tasks.
    */
   async generateText(req: OllamaRequest, timeoutMs = 120_000): Promise<string> {
     const targetModel = ModelRouter.getBestModel(req.modelType, req.modelParam);
-    
+
     const body: any = {
       model: targetModel,
       prompt: req.prompt,
@@ -49,25 +61,27 @@ export class LlmService {
     });
 
     if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
-    
+
     const data = await res.json();
-    return data.response;
+    return data.response ?? '';
   }
 
   /**
-   * Streams generation to an Express Response using Server-Sent Events.
+   * Streams token-by-token generation to an Express SSE Response.
+   * Uses the /api/generate endpoint. Only suitable for simple generation
+   * tasks that do not require tool calling.
    */
-  async streamToResponse(req: OllamaRequest, res: Response, timeoutMs = 180_000): Promise<void> {
+  async streamToResponse(
+    req: OllamaRequest,
+    res: Response,
+    timeoutMs = 180_000,
+  ): Promise<void> {
     const targetModel = ModelRouter.getBestModel(req.modelType, req.modelParam);
 
     const generateResponse = await fetch(LlmService.OLLAMA_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: targetModel,
-        prompt: req.prompt,
-        stream: true,
-      }),
+      body: JSON.stringify({ model: targetModel, prompt: req.prompt, stream: true }),
       signal: AbortSignal.timeout(timeoutMs),
     });
 
@@ -78,23 +92,25 @@ export class LlmService {
     if (generateResponse.body) {
       const reader = generateResponse.body.getReader();
       const decoder = new TextDecoder();
-      
+
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
+
           const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim() !== '');
-          
+          const lines = chunk.split('\n').filter((l) => l.trim() !== '');
+
           for (const line of lines) {
             try {
               const data = JSON.parse(line);
               if (data.response) {
-                res.write(`data: ${JSON.stringify({ type: 'text', text: data.response })}\n\n`);
+                res.write(
+                  `data: ${JSON.stringify({ type: 'text', text: data.response })}\n\n`,
+                );
               }
-            } catch (e) {
-              // Ignore invalid JSON in chunks
+            } catch {
+              // Ignore malformed JSON chunks from the stream
             }
           }
         }
@@ -105,27 +121,42 @@ export class LlmService {
   }
 
   /**
-   * Agentic Loop: Chats using the native Ollama /api/chat endpoint with tools support.
+   * Fully autonomous Agentic Loop using Ollama's /api/chat with native tool calling.
+   *
+   * The LLM can autonomously call any registered tool (web_search, web_scrape,
+   * knowledge_graph_search, code_runner, calculator) multiple times until it
+   * has enough information to produce its final answer.
+   *
+   * The final answer is written to the SSE Response when the LLM stops calling tools.
+   *
+   * @param modelType     Task category for model routing
+   * @param modelParam    Optional user-overridden model name
+   * @param messages      Initial conversation array (system + history + user query)
+   * @param res           Express Response for SSE streaming
+   * @param userId        The authenticated user's ID, required for user-scoped tools
+   * @param callbacks     Optional hooks for streaming tool call progress to the UI
    */
   async chatWithTools(
     modelType: 'REASONING' | 'EXTRACTION' | 'DRAFTING',
     modelParam: string | undefined,
     messages: ChatMessage[],
     res: Response,
-    onToolCall?: (toolName: string, args: any) => void,
-    onToolResult?: (toolName: string, result: string) => void,
+    userId: string,
+    callbacks: AgentLoopCallbacks = {},
   ): Promise<void> {
     const targetModel = ModelRouter.getBestModel(modelType, modelParam);
-    const tools = this.toolRegistry.getAllOllamaTools();
+    const tools = this.toolRegistry.getOllamaToolsForUser(userId);
 
-    let loopSafety = 0;
-    const maxLoops = 5;
+    this.logger.log(
+      `[AgentLoop] Starting for user [${userId}] with model [${targetModel}] and ${tools.length} tools.`,
+    );
 
-    while (loopSafety < maxLoops) {
-      loopSafety++;
-      
-      this.logger.log(`[Agent Loop ${loopSafety}] Calling Ollama API /api/chat`);
-      
+    let loopCount = 0;
+
+    while (loopCount < LlmService.MAX_AGENT_LOOPS) {
+      loopCount++;
+      this.logger.log(`[AgentLoop] Iteration ${loopCount}/${LlmService.MAX_AGENT_LOOPS}`);
+
       const chatResponse = await fetch(LlmService.OLLAMA_CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,40 +175,54 @@ export class LlmService {
 
       const data = await chatResponse.json();
       const assistantMessage = data.message;
-      
+
+      // Add the LLM's response to the conversation history
       messages.push(assistantMessage);
 
-      // Check if the LLM decided to use a tool
-      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      const hasToolCalls =
+        assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0;
+
+      if (hasToolCalls) {
+        // --- TOOL EXECUTION PHASE ---
         for (const toolCall of assistantMessage.tool_calls) {
-          const functionName = toolCall.function.name;
-          const args = toolCall.function.arguments;
-          
-          if (onToolCall) onToolCall(functionName, args);
+          const functionName: string = toolCall.function.name;
+          const args: Record<string, any> = toolCall.function.arguments ?? {};
 
-          // Execute the tool
-          const result = await this.toolRegistry.executeTool(functionName, args);
-          
-          if (onToolResult) onToolResult(functionName, result);
+          if (callbacks.onToolCall) callbacks.onToolCall(functionName, args);
 
-          // Push the tool result back into the conversation
-          messages.push({
-            role: 'tool',
-            content: result,
-          });
+          const result = await this.toolRegistry.executeToolForUser(
+            functionName,
+            args,
+            userId,
+          );
+
+          if (callbacks.onToolResult) callbacks.onToolResult(functionName, result);
+
+          // Inject the tool result into the conversation so the LLM can reason over it
+          messages.push({ role: 'tool', content: result });
         }
-        // Loop continues to let the LLM evaluate the tool results
+        // Continue the loop — the LLM will now reason over the tool results
       } else {
-        // No tool calls means the LLM is giving the final answer!
-        // We will send this final answer down the SSE stream.
-        // (Since we used stream: false for the loop, we just push the whole chunk now, or we could stream the final response, but this is simpler for the agentic loop)
-        res.write(`data: ${JSON.stringify({ type: "text", text: assistantMessage.content || "I apologize, but I could not formulate a response." })}\n\n`);
-        break;
+        // --- FINAL ANSWER PHASE ---
+        // The LLM decided it has enough information and is giving the final response.
+        const finalText =
+          assistantMessage.content ||
+          'I was unable to formulate a response. Please try rephrasing your question.';
+
+        res.write(
+          `data: ${JSON.stringify({ type: 'text', text: finalText })}\n\n`,
+        );
+        this.logger.log(`[AgentLoop] Completed after ${loopCount} iteration(s).`);
+        return;
       }
     }
-    
-    if (loopSafety >= maxLoops) {
-      res.write(`data: ${JSON.stringify({ type: 'text', text: '\n\n[Agent stopped to prevent infinite tool looping]' })}\n\n`);
-    }
+
+    // Safety net: LLM hit the max loop limit without giving a final answer
+    this.logger.warn(
+      `[AgentLoop] Hit max loop limit (${LlmService.MAX_AGENT_LOOPS}) for user [${userId}]. Forcing completion.`,
+    );
+    res.write(
+      `data: ${JSON.stringify({ type: 'text', text: '\n\n[Agent reached its reasoning limit. Please try a simpler query or check tool availability.]' })}\n\n`,
+    );
   }
 }

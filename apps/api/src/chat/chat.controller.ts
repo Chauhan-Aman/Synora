@@ -1,276 +1,176 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Logger, UseGuards, Res } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpException,
+  HttpStatus,
+  Logger,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
-import { ModelRouter } from '../common/model-router';
-import { PrismaService } from '../prisma/prisma.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { CaptureService } from '../capture/capture.service';
-import { WebSearchService } from './web-search.service';
 import { LlmService } from '../common/llm.service';
 
-////@UseGuards(JwtAuthGuard)
+/**
+ * ChatController — the primary entry point for the Synora AI chat interface.
+ *
+ * Architecture:
+ * - Accepts a user query, conversation history, and optional model preference.
+ * - Immediately opens an SSE stream to the frontend for real-time progress.
+ * - Builds a rich system prompt and delegates ALL reasoning and tool orchestration
+ *   to the LlmService agentic loop (chatWithTools).
+ * - The LLM itself decides when to search the web, read URLs, query the knowledge
+ *   graph, run code, or perform calculations — without any hardcoded branching here.
+ *
+ * This follows the "Thin Controller, Fat Service" architectural principle.
+ */
+//@UseGuards(JwtAuthGuard)
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly captureService: CaptureService,
-    private readonly webSearch: WebSearchService,
-    private readonly llmService: LlmService,
-  ) {}
+  constructor(private readonly llmService: LlmService) {}
 
   @Post()
   async chat(
-    @Body('query') query: string, 
-    @Body('history') history: any[], 
+    @Body('query') query: string,
+    @Body('history') history: any[],
     @CurrentUser() user: any,
     @Res() res: Response,
-    @Body('forceWebSearch') forceWebSearch?: boolean,
-    @Body('model') modelParam?: string
+    @Body('model') modelParam?: string,
   ) {
-    if (!query) {
+    if (!query?.trim()) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
 
+    const userId: string = user?.userId ?? 'anonymous';
+
     try {
+      // --- SSE Setup ---
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders();
 
-      const sendLog = (action: string, status: string, message: string) => {
-        res.write(`data: ${JSON.stringify({ type: 'log', log: { action, status, message } })}\n\n`);
+      /**
+       * Sends a structured log event to the frontend Agentic Workflow panel.
+       * Status: 'pending' shows a spinner, 'done' shows a check, 'error' shows an X.
+       */
+      const sendLog = (
+        action: string,
+        status: 'pending' | 'done' | 'error',
+        message: string,
+      ) => {
+        res.write(
+          `data: ${JSON.stringify({ type: 'log', log: { action, status, message } })}\n\n`,
+        );
       };
 
-      let searchQuery = query;
-      const agentLogs: { action: string; status: 'done' | 'error'; message: string }[] = [];
+      this.logger.log(`[Chat] User [${userId}] query: "${query}"`);
 
-      if (history && history.length > 0) {
-        const historyText = history.slice(-6).map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.content}`).join('\n');
-        const rewritePrompt = `Given the following conversation history, rewrite the user's latest query to be a standalone search query. Replace pronouns (he, she, it, they) with the actual entities they refer to from the history. DO NOT answer the question, ONLY return the rewritten query text.
-        
-History:
-${historyText}
+      // --- Build conversation messages ---
+      const historyMessages =
+        history && history.length > 0
+          ? history
+              .slice(-8)
+              .map((m: any) => ({ role: m.role, content: m.content ?? '' }))
+          : [];
 
-Latest Query: ${query}
+      const systemPrompt = `You are Synora, an intelligent personal assistant with access to a suite of powerful tools.
 
-Rewritten Query:`;
+You have access to the following tools and you should use them proactively when needed:
+- knowledge_graph_search: Search the user's private saved notes and bookmarks. ALWAYS try this first before searching the web.
+- web_search: Search DuckDuckGo for current information. Use this if knowledge_graph_search is insufficient or the user needs fresh data.
+- web_scrape: Read the full content of a specific URL. Use this after web_search to get more detailed information from a result.
+- calculator: Evaluate mathematical expressions precisely.
+- code_runner: Write and execute Python scripts for data analysis, computations, or any programming task.
 
-        try {
-          searchQuery = await this.llmService.generateText({
-            modelType: 'REASONING',
-            modelParam: modelParam,
-            prompt: rewritePrompt
-          });
-          searchQuery = searchQuery.trim();
-          this.logger.log(`Rewrote query for search: "${searchQuery}"`);
-          const logMsg = { action: 'Query Rewrite', status: 'done', message: `Rewrote query to: "${searchQuery}"` };
-          agentLogs.push(logMsg as any);
-          sendLog(logMsg.action, logMsg.status, logMsg.message);
-        } catch (e) {
-          this.logger.error("Failed to rewrite query", e);
-          const logMsg = { action: 'Query Rewrite', status: 'error', message: 'Failed to rewrite query.' };
-          agentLogs.push(logMsg as any);
-          sendLog(logMsg.action, logMsg.status, logMsg.message);
-        }
-      }
-
-      this.logger.log(`Embedding user query: "${searchQuery}"`);
-      // 1. Embed the query using Nomic Embed
-      const embeddingResponse = await fetch(LlmService.EMBEDDING_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'nomic-embed-text',
-          prompt: searchQuery,
-        }),
-      });
-
-      if (!embeddingResponse.ok) {
-        throw new Error('Failed to get embeddings from Ollama');
-      }
-
-      const embedData = await embeddingResponse.json();
-      const vector = embedData.embedding;
-      const vectorString = `[${vector.join(',')}]`;
-
-      // 2. Perform Hybrid Search using Reciprocal Rank Fusion (RRF)
-      this.logger.log(`Performing Hybrid Search (BM25 + Vector) for relevant chunks for user ${(user?.userId || "test")}...`);
-      
-      const relevantChunks = await this.prisma.$queryRaw<any[]>`
-        WITH vector_results AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> ${vectorString}::vector) as vector_rank
-          FROM "Chunk"
-          WHERE "userId" = ${(user?.userId || "test")} AND embedding IS NOT NULL
-          ORDER BY vector_rank
-          LIMIT 20
-        ),
-        keyword_results AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd("searchVector", plainto_tsquery('english', ${searchQuery})) DESC) as keyword_rank
-          FROM "Chunk"
-          WHERE "userId" = ${(user?.userId || "test")} AND "searchVector" @@ plainto_tsquery('english', ${searchQuery})
-          ORDER BY keyword_rank
-          LIMIT 20
-        )
-        SELECT 
-          c.id, 
-          c.text as content,
-          a."sourceUrl" as "sourceUrl",
-          COALESCE(1.0 / (60 + vr.vector_rank), 0.0) + COALESCE(1.0 / (60 + kr.keyword_rank), 0.0) as rrf_score
-        FROM "Chunk" c
-        JOIN "Artifact" a ON c."artifactId" = a.id
-        LEFT JOIN vector_results vr ON c.id = vr.id
-        LEFT JOIN keyword_results kr ON c.id = kr.id
-        WHERE vr.id IS NOT NULL OR kr.id IS NOT NULL
-        ORDER BY rrf_score DESC
-        LIMIT 5;
-      `;
-
-      // 3. Construct the Initial Context
-      let contextText = "";
-      let sources: string[] = [];
-      
-      if (relevantChunks.length > 0) {
-        contextText = relevantChunks
-          .map((c, i) => `[Local Source ${i + 1}] (${c.sourceUrl || 'Text Snippet'}):\n${c.content}`)
-          .join('\n\n');
-        
-        const allSources = relevantChunks.map(c => c.sourceUrl || 'Local Text Snippet');
-        sources = [...new Set(allSources)];
-      }
-
-      // --- AGENTIC WEB SEARCH FALLBACK ---
-      this.logger.log("Agent evaluating if local context is sufficient...");
-      const logMsgEval = { action: 'Context Evaluation', status: 'done', message: 'Evaluating if local context is sufficient to answer the question...' };
-      agentLogs.push(logMsgEval as any);
-      sendLog(logMsgEval.action, logMsgEval.status, logMsgEval.message);
-      
-      const evalPrompt = `Does the following context contain sufficient information to answer the user's question?
-Context:
-${contextText || "No context provided."}
-
-Question: ${searchQuery}
-
-Reply with ONLY the word "YES" or "NO".`;
-
-      let needsWebSearch = forceWebSearch || false; 
-      
-      if (!forceWebSearch && contextText) {
-        try {
-          const responseText = await this.llmService.generateText({
-            modelType: 'REASONING',
-            modelParam: modelParam,
-            prompt: evalPrompt
-          });
-          const responseWord = responseText.trim().toUpperCase();
-          needsWebSearch = responseWord.includes('NO');
-          this.logger.log(`Agent evaluation result: ${responseWord} -> Needs Web Search: ${needsWebSearch}`);
-          const msg2 = { action: 'Context Evaluation', status: 'done', message: `LLM decided local context is ${needsWebSearch ? 'insufficient' : 'sufficient'}.` };
-          agentLogs.push(msg2 as any);
-          sendLog(msg2.action, msg2.status, msg2.message);
-        } catch(e) {
-          this.logger.error("Failed to evaluate context", e);
-        }
-      } else if (!contextText) {
-        needsWebSearch = true;
-        const msg2 = { action: 'Context Evaluation', status: 'done', message: 'No local context found. Forcing web search.' };
-        agentLogs.push(msg2 as any);
-        sendLog(msg2.action, msg2.status, msg2.message);
-      } else if (forceWebSearch) {
-        const msg2 = { action: 'Context Evaluation', status: 'done', message: 'User explicitly forced a web search.' };
-        agentLogs.push(msg2 as any);
-        sendLog(msg2.action, msg2.status, msg2.message);
-      }
-
-      if (needsWebSearch) {
-        this.logger.log(`Executing Autonomous Web Search for: "${searchQuery}"`);
-        const msg3 = { action: 'Web Search', status: 'done', message: `Searching DuckDuckGo for "${searchQuery}"` };
-        agentLogs.push(msg3 as any);
-        sendLog(msg3.action, msg3.status, msg3.message);
-        
-        try {
-          const webResults = await this.webSearch.search(searchQuery, 3);
-
-          webResults.forEach((result, i) => {
-            contextText += `\n\n[Web Result ${i + 1}] (${result.url}):\n${result.content}`;
-            sources.push(result.url);
-
-            const msg4 = { action: 'Web Scrape', status: 'done', message: `Read context from: ${result.title}` };
-            agentLogs.push(msg4 as any);
-            sendLog(msg4.action, msg4.status, msg4.message);
-
-            // Asynchronously persist to Knowledge Graph
-            this.captureService
-              .create({ type: 'WEB_SEARCH', sourceUrl: result.url }, (user?.userId || "test"))
-              .catch((e: any) =>
-                this.logger.error(`Capture queue failed for ${result.url}: ${e.message}`),
-              );
-          });
-        } catch (searchErr: any) {
-          this.logger.error('Web search failed', searchErr);
-          const msg6 = { action: 'Web Search', status: 'error', message: 'Web search failed — answering from memory.' };
-          agentLogs.push(msg6 as any);
-          sendLog(msg6.action, msg6.status, msg6.message);
-        }
-      }
+Guidelines:
+1. For personal questions ("what did I save about X"), ALWAYS call knowledge_graph_search first.
+2. For current events or general knowledge, call web_search, then web_scrape the most relevant result.
+3. For mathematical or computational tasks, use calculator or code_runner.
+4. Chain tools naturally — search first, scrape to get details, then synthesize the answer.
+5. Be concise, helpful, and transparent about your sources.
+6. If tools fail, answer from your general knowledge and note the limitation.`;
 
       const messages = [
-        { role: 'system', content: `You are Synora, an intelligent and friendly personal assistant. 
-You have access to the user's personal knowledge graph, and you can also autonomously search the web if needed.
-
-If the user is just saying hello or asking a general conversational question, answer in a friendly, conversational manner.
-If the user is asking a question that requires specific knowledge, try to answer it using the provided context below. 
-If the context does not contain the answer, you may use your own general knowledge to answer, but please mention that you are doing so.
-
-CONTEXT:
-${contextText || "No context available."}` },
-        ...(history && history.length > 0 ? history.slice(-8).map((m: any) => ({ role: m.role, content: m.content || "" })) : []),
-        { role: 'user', content: query }
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: query },
       ];
 
-      this.logger.log(`Generating final answer using Tool-Calling Loop...`);
-      
-      res.write(`data: ${JSON.stringify({ type: 'metadata', sources })}\n\n`);
+      sendLog('Thinking', 'pending', 'Analyzing your query and selecting the best approach...');
 
-      const genMsg = { action: 'Generating', status: 'done', message: 'Synthesizing final response...' };
-      agentLogs.push(genMsg as any);
-      sendLog(genMsg.action, genMsg.status, genMsg.message);
-
-      // 4. Generate the final answer using Agentic Loop
+      // --- Delegate to the Autonomous Agentic Loop ---
       await this.llmService.chatWithTools(
         'REASONING',
         modelParam,
         messages as any,
         res,
-        (toolName, args) => {
-          this.logger.log(`LLM decided to call tool: ${toolName}`);
-          const msg = { action: 'Tool Call', status: 'done', message: `Executing tool ${toolName}...` };
-          agentLogs.push(msg as any);
-          sendLog(msg.action, msg.status, msg.message);
+        userId,
+        {
+          onToolCall: (toolName, args) => {
+            this.logger.log(`[Agent] Calling tool: [${toolName}]`);
+            const toolLabels: Record<string, string> = {
+              web_search: `Searching the web for: "${args.query}"`,
+              web_scrape: `Reading page: ${args.url}`,
+              knowledge_graph_search: `Searching your knowledge graph for: "${args.query}"`,
+              code_runner: 'Running Python script...',
+              calculator: `Calculating: ${args.expression}`,
+            };
+            sendLog(
+              this.formatToolName(toolName),
+              'pending',
+              toolLabels[toolName] ?? `Executing ${toolName}...`,
+            );
+          },
+          onToolResult: (toolName, result) => {
+            this.logger.log(
+              `[Agent] Tool [${toolName}] returned ${result.length} chars.`,
+            );
+            sendLog(
+              this.formatToolName(toolName),
+              'done',
+              `${this.formatToolName(toolName)} completed.`,
+            );
+          },
         },
-        (toolName, result) => {
-          this.logger.log(`Tool ${toolName} returned result length: ${result.length}`);
-          const msg = { action: 'Tool Result', status: 'done', message: `Tool ${toolName} finished.` };
-          agentLogs.push(msg as any);
-          sendLog(msg.action, msg.status, msg.message);
-        }
       );
-      
+
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
-      this.logger.log(`Stream complete for: "${searchQuery}"`);
+      this.logger.log(`[Chat] Stream complete for user [${userId}].`);
+    } catch (error: any) {
+      this.logger.error(`[Chat] Error for user [${userId}]: ${error.message}`, error.stack);
 
-    } catch (error) {
-      this.logger.error(`Chat error: ${(error as Error).message}`);
       if (!res.headersSent) {
-        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to communicate with local AI' });
+        res
+          .status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .json({ message: 'Failed to communicate with local AI.' });
       } else {
-        res.write(`data: ${JSON.stringify({ type: 'text', text: '\\n\\n**System Error:** Connection to local AI failed. Please ensure Ollama is running and responding.' })}\\n\\n`);
-        res.write(`data: ${JSON.stringify({ type: 'done' })}\\n\\n`);
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'text',
+            text: '\n\n**System Error:** Failed to connect to the local AI. Please ensure Ollama is running (`ollama serve`) and the selected model has been pulled.',
+          })}\n\n`,
+        );
+        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
         res.end();
       }
     }
   }
-}
 
+  /**
+   * Converts a snake_case tool name into a human-readable label for the UI.
+   */
+  private formatToolName(toolName: string): string {
+    const labels: Record<string, string> = {
+      web_search: 'Web Search',
+      web_scrape: 'Web Scrape',
+      knowledge_graph_search: 'Knowledge Graph',
+      code_runner: 'Code Execution',
+      calculator: 'Calculator',
+    };
+    return labels[toolName] ?? toolName;
+  }
+}

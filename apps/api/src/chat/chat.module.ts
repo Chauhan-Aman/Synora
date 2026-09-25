@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ChatController } from './chat.controller';
-import { WebSearchService } from './web-search.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { CaptureModule } from '../capture/capture.module';
 
+/**
+ * ChatModule — provides the Synora AI chat endpoint.
+ *
+ * All tool orchestration (web search, scraping, knowledge graph, code execution)
+ * is handled internally by the LlmService agentic loop via the ToolRegistryService,
+ * both of which are globally exported from CommonModule.
+ */
 @Module({
-  imports: [PrismaModule, CaptureModule],
+  imports: [PrismaModule],
   controllers: [ChatController],
-  providers: [WebSearchService],
+  providers: [],
 })
 export class ChatModule {}
