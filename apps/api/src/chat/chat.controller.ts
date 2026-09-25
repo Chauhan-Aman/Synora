@@ -262,8 +262,11 @@ ${contextText || "No context available."}` },
       if (!res.headersSent) {
         res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to communicate with local AI' });
       } else {
+        res.write(`data: ${JSON.stringify({ type: 'text', text: '\\n\\n**System Error:** Connection to local AI failed. Please ensure Ollama is running and responding.' })}\\n\\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done' })}\\n\\n`);
         res.end();
       }
     }
   }
 }
+
