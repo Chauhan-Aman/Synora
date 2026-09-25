@@ -630,8 +630,23 @@ function App() {
                 setChatHistory(prev => {
                   const newHistory = [...prev];
                   const lastMsg = newHistory[newHistory.length - 1];
-                  const newLogs = [...(lastMsg.agentLogs || []), data.log];
-                  newHistory[newHistory.length - 1] = { ...lastMsg, agentLogs: newLogs };
+                  const existingLogs = [...(lastMsg.agentLogs || [])];
+                  
+                  // If a 'done' log arrives for the same action as a 'pending' log,
+                  // update the existing entry in-place instead of appending a duplicate.
+                  if (data.log.status === 'done') {
+                    const pendingIdx = existingLogs.findLastIndex(
+                      (l: any) => l.action === data.log.action && l.status === 'pending'
+                    );
+                    if (pendingIdx !== -1) {
+                      existingLogs[pendingIdx] = data.log;
+                      newHistory[newHistory.length - 1] = { ...lastMsg, agentLogs: existingLogs };
+                      return newHistory;
+                    }
+                  }
+                  
+                  // Otherwise append as a new entry
+                  newHistory[newHistory.length - 1] = { ...lastMsg, agentLogs: [...existingLogs, data.log] };
                   return newHistory;
                 });
               } else if (data.type === 'metadata') {
@@ -1659,6 +1674,8 @@ function App() {
                                 <div key={i} className="flex items-start gap-2 text-sm">
                                   {log.status === 'done' ? (
                                     <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                  ) : log.status === 'pending' ? (
+                                    <Loader2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 animate-spin" />
                                   ) : (
                                     <X className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                                   )}
