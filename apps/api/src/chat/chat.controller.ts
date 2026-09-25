@@ -99,7 +99,7 @@ Guidelines:
         { role: 'user', content: query },
       ];
 
-      sendLog('Thinking', 'pending', 'Analyzing your query and selecting the best approach...');
+      sendLog('Thinking', 'done', 'Analyzed your query — selecting the best approach...');
 
       // --- Delegate to the Autonomous Agentic Loop ---
       await this.llmService.chatWithTools(
@@ -136,6 +136,8 @@ Guidelines:
           },
         },
       );
+
+      sendLog('Generating', 'done', 'Response complete.');
 
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
