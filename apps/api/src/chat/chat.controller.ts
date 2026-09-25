@@ -233,6 +233,10 @@ ${contextText || "No context available."}` },
       
       res.write(`data: ${JSON.stringify({ type: 'metadata', sources })}\n\n`);
 
+      const genMsg = { action: 'Generating', status: 'done', message: 'Synthesizing final response...' };
+      agentLogs.push(genMsg as any);
+      sendLog(genMsg.action, genMsg.status, genMsg.message);
+
       // 4. Generate the final answer using Agentic Loop
       await this.llmService.chatWithTools(
         'REASONING',

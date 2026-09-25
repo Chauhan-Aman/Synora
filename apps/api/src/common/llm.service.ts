@@ -171,7 +171,7 @@ export class LlmService {
         // No tool calls means the LLM is giving the final answer!
         // We will send this final answer down the SSE stream.
         // (Since we used stream: false for the loop, we just push the whole chunk now, or we could stream the final response, but this is simpler for the agentic loop)
-        res.write(`data: ${JSON.stringify({ type: "text", text: assistantMessage.content || "I apologize, but I could not formulate a response." })}\\n\\n`);
+        res.write(`data: ${JSON.stringify({ type: "text", text: assistantMessage.content || "I apologize, but I could not formulate a response." })}\n\n`);
         break;
       }
     }
