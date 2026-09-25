@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 interface ProceduralCoverProps {
   title: string;
@@ -58,3 +58,4 @@ export function ProceduralCover({
     </div>
   );
 }
+

@@ -34,6 +34,7 @@
     "bullmq": "^6.1.1",
     "cheerio": "^1.2.0",
     "ioredis": "^6.0.0",
+    "mathjs": "^15.2.0",
     "multer": "^2.2.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

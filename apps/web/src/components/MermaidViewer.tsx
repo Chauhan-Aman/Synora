@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import { useRef, useEffect } from 'react';
+
 import mermaid from 'mermaid';
 
 interface MermaidViewerProps {
@@ -40,3 +41,6 @@ export function MermaidViewer({ chart }: MermaidViewerProps) {
     </div>
   );
 }
+
+
+

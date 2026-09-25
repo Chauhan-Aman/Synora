@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  Network, Save, X, Search, Moon, Sun, 
-  BrainCircuit, Layout, BookOpen, Compass,
-  ChevronRight, Library, Shield, User, Map, CheckCircle2, CheckCircle, Star, Clock, Zap, Target,
-  RefreshCw, Settings2, Trash2, ArrowRight,
-  TrendingUp, BarChart2, Plus, LogOut, ArrowLeft, Loader2, Sparkles, Link, Box, Edit3, Image as ImageIcon, FileText, Type, MessageSquare, Send, List as ListIcon, Key, GraduationCap, Mic, MicOff, VolumeX, Volume2, Settings, Layers, ExternalLink, Hash, Workflow, Copy, Rss, MessageCircle, Briefcase, Download, CheckSquare, Square, Printer, Mail
-} from 'lucide-react';
+import { BrainCircuit, CheckCircle, Compass, FileText, GraduationCap, Key, Layers, Link, Loader2, LogOut, MessageSquare, Plus, Rss, Settings, Sparkles, X, Copy, Trash2, Edit3, Type, Box, Mic, MicOff, Search, Network, List as ListIcon, Workflow, Hash, Volume2, VolumeX, Send, Image as ImageIcon, Briefcase, MessageCircle, Mail, CheckSquare, Square, Download, Printer } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -40,7 +34,7 @@ type WritingStyle = 'professional' | 'conversational' | 'academic';
 
 interface Topic { id: string; name: string; count: number; }
 interface Entity { id: string; name: string; type: string; count: number; }
-interface Artifact { id: string; title?: string; sourceUrl: string; type: string; status: string; content?: string; summary?: string; createdAt: string; topics: {id: string, name: string}[] }
+interface Artifact { id: string; title?: string; sourceUrl: string; type: string; status: string; content?: string; summary?: string; createdAt: string; topics: {id: string, name: string}[]; collections?: any[] }
 interface ChatMessage { role: 'user' | 'assistant'; content: string; sources?: string[]; agentLogs?: { action: string; status: 'pending'|'done'|'error'; message: string }[]; }
 
 const CodeBlock = ({ inline, className, children, ...props }: any) => {
@@ -106,7 +100,7 @@ function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphData, setGraphData] = useState<{nodes: any[], links: any[]}>({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
@@ -139,7 +133,7 @@ function App() {
 
   useEffect(() => {
     if (selectedArtifact && token) {
-      fetch(`http://localhost:3000/annotations/artifact/${selectedArtifact.id}`, {
+      fetch(`http://localhost:3001/annotations/artifact/${selectedArtifact.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -280,7 +274,7 @@ function App() {
         return;
       }
       try {
-        const res = await fetchWithAuth('http://localhost:3000/create/context', {
+        const res = await fetchWithAuth('http://localhost:3001/create/context', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ draft: draftText })
@@ -401,7 +395,7 @@ function App() {
 
     try {
       const endpoint = authMode === 'LOGIN' ? '/auth/login' : '/auth/register';
-      const res = await fetch(`http://localhost:3000${endpoint}`, {
+      const res = await fetch(`http://localhost:3001${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -433,12 +427,12 @@ function App() {
     setIsLoadingKnowledge(true);
     try {
       const [topicsRes, entitiesRes, graphRes, artifactsRes, collectionsRes, insightsRes] = await Promise.all([
-        fetchWithAuth('http://localhost:3000/knowledge/topics'),
-        fetchWithAuth('http://localhost:3000/knowledge/entities'),
-        fetchWithAuth('http://localhost:3000/knowledge/graph'),
-        fetchWithAuth('http://localhost:3000/knowledge/artifacts'),
-        fetchWithAuth('http://localhost:3000/knowledge/collections'),
-        fetchWithAuth('http://localhost:3000/knowledge/insights')
+        fetchWithAuth('http://localhost:3001/knowledge/topics'),
+        fetchWithAuth('http://localhost:3001/knowledge/entities'),
+        fetchWithAuth('http://localhost:3001/knowledge/graph'),
+        fetchWithAuth('http://localhost:3001/knowledge/artifacts'),
+        fetchWithAuth('http://localhost:3001/knowledge/collections'),
+        fetchWithAuth('http://localhost:3001/knowledge/insights')
       ]);
       const topicsData = await topicsRes.json();
       const entitiesData = await entitiesRes.json();
@@ -468,7 +462,7 @@ function App() {
   const fetchLearn = async () => {
     setIsLoadingLearn(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3000/learn/due');
+      const res = await fetchWithAuth('http://localhost:3001/learn/due');
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to fetch flashcards');
       setFlashcards(data);
@@ -485,8 +479,8 @@ function App() {
     setIsLoadingDiscover(true);
     try {
       const [feedRes, profileRes] = await Promise.all([
-        fetchWithAuth('http://localhost:3000/discovery/feed'),
-        fetchWithAuth('http://localhost:3000/discovery/taste-profile')
+        fetchWithAuth('http://localhost:3001/discovery/feed'),
+        fetchWithAuth('http://localhost:3001/discovery/taste-profile')
       ]);
       if (feedRes.ok) setRecommendations(await feedRes.json());
       if (profileRes.ok) setTasteProfile((await profileRes.json()).profile);
@@ -500,7 +494,7 @@ function App() {
   const handleExplore = async (id: string) => {
     setExploringId(id);
     try {
-      const res = await fetchWithAuth(`http://localhost:3000/discovery/${id}/explore`, { method: 'POST' });
+      const res = await fetchWithAuth(`http://localhost:3001/discovery/${id}/explore`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to explore');
       setRecommendations(prev => prev.filter(r => r.id !== id));
       alert("Artifact generated and sent for processing! Check your Knowledge Graph soon.");
@@ -514,7 +508,7 @@ function App() {
   const handleDiveDeeper = async (id: string) => {
     setDivingId(id);
     try {
-      const res = await fetchWithAuth(`http://localhost:3000/discovery/${id}/dive-deeper`, { method: 'POST' });
+      const res = await fetchWithAuth(`http://localhost:3001/discovery/${id}/dive-deeper`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to dive deeper');
       const data = await res.json();
       setNestedRecommendations(prev => ({
@@ -533,7 +527,7 @@ function App() {
     if (!card) return;
 
     try {
-      await fetchWithAuth(`http://localhost:3000/learn/review/${card.id}`, {
+      await fetchWithAuth(`http://localhost:3001/learn/review/${card.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score })
@@ -565,12 +559,12 @@ function App() {
         const formData = new FormData();
         formData.append('file', selectedFile as File);
         
-        response = await fetchWithAuth('http://localhost:3000/capture/upload', {
+        response = await fetchWithAuth('http://localhost:3001/capture/upload', {
           method: 'POST',
           body: formData,
         });
       } else {
-        response = await fetchWithAuth('http://localhost:3000/capture', {
+        response = await fetchWithAuth('http://localhost:3001/capture', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -608,7 +602,7 @@ function App() {
     setChatHistory(prev => [...prev, { role: 'assistant', content: '', sources: [], agentLogs: [] }]);
 
     try {
-      const response = await fetchWithAuth('http://localhost:3000/chat', {
+      const response = await fetchWithAuth('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig }),
@@ -684,7 +678,7 @@ function App() {
     if (!draftText.trim() || isGeneratingParagraph) return;
     setIsGeneratingParagraph(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3000/create/generate', {
+      const res = await fetchWithAuth('http://localhost:3001/create/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftText, context: draftContext, model: modelConfig })
@@ -704,7 +698,7 @@ function App() {
     if (!draftText.trim() || isGeneratingCover) return;
     setIsGeneratingCover(true);
     try {
-      const response = await fetch(`http://localhost:3000/visuals/cover-theme`, {
+      const response = await fetch(`http://localhost:3001/visuals/cover-theme`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ title: 'My Article', content: draftText })
@@ -747,7 +741,7 @@ function App() {
     if (!suggestedParagraph.trim() || !revisionPrompt.trim() || isRevising) return;
     setIsRevising(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3000/create/rewrite', {
+      const res = await fetchWithAuth('http://localhost:3001/create/rewrite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftText, suggestedParagraph, instructions: revisionPrompt, context: draftContext, model: modelConfig })
@@ -1170,7 +1164,7 @@ function App() {
                           onClick={async () => {
                             setIsGeneratingInsights(true);
                             try {
-                              const res = await fetchWithAuth('http://localhost:3000/knowledge/insights/generate', { method: 'POST' });
+                              const res = await fetchWithAuth('http://localhost:3001/knowledge/insights/generate', { method: 'POST' });
                               if (res.ok) setInsights(await res.json());
                             } catch(e) { console.error(e) }
                             setIsGeneratingInsights(false);
@@ -1418,7 +1412,7 @@ function App() {
                               if (isGeneratingDiagram) return;
                               setIsGeneratingDiagram(true);
                               try {
-                                const response = await fetch(`http://localhost:3000/visuals/diagram`, {
+                                const response = await fetch(`http://localhost:3001/visuals/diagram`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                   body: JSON.stringify({ text: selectedArtifact.content || selectedArtifact.summary || '' })
@@ -1480,7 +1474,7 @@ function App() {
                                 onChange={e => setNewAnnotation(e.target.value)}
                                 onKeyDown={async (e) => {
                                   if (e.key === 'Enter' && newAnnotation.trim()) {
-                                    const res = await fetch(`http://localhost:3000/annotations/artifact/${selectedArtifact.id}`, {
+                                    const res = await fetch(`http://localhost:3001/annotations/artifact/${selectedArtifact.id}`, {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                       body: JSON.stringify({ text: newAnnotation.trim() })
@@ -1497,7 +1491,7 @@ function App() {
                               <button 
                                 onClick={async () => {
                                   if (!newAnnotation.trim()) return;
-                                  const res = await fetch(`http://localhost:3000/annotations/artifact/${selectedArtifact.id}`, {
+                                  const res = await fetch(`http://localhost:3001/annotations/artifact/${selectedArtifact.id}`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                     body: JSON.stringify({ text: newAnnotation.trim() })
@@ -1520,7 +1514,7 @@ function App() {
                                   <p className="text-sm text-white/90">{ann.text}</p>
                                   <button 
                                     onClick={async () => {
-                                      const res = await fetch(`http://localhost:3000/annotations/${ann.id}`, {
+                                      const res = await fetch(`http://localhost:3001/annotations/${ann.id}`, {
                                         method: 'DELETE',
                                         headers: { 'Authorization': `Bearer ${token}` }
                                       });
@@ -2215,7 +2209,7 @@ function App() {
                   onClick={async () => {
                     setIsPublishing(true);
                     setPublishOutput('');
-                    const res = await fetchWithAuth(`http://localhost:3000/publish/${publishFormat}`, {
+                    const res = await fetchWithAuth(`http://localhost:3001/publish/${publishFormat}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ topicIds: Array.from(publishSelectedTopics), style: publishStyle }),
@@ -2371,7 +2365,7 @@ function App() {
                   placeholder="e.g. Machine Learning"
                   onKeyDown={async e => {
                     if (e.key === 'Enter' && newCollectionName.trim()) {
-                      const res = await fetchWithAuth('http://localhost:3000/knowledge/collections', {
+                      const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: newCollectionName.trim() })
@@ -2395,7 +2389,7 @@ function App() {
                 <button 
                   disabled={!newCollectionName.trim()}
                   onClick={async () => {
-                    const res = await fetchWithAuth('http://localhost:3000/knowledge/collections', {
+                    const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ name: newCollectionName.trim() })
@@ -2447,7 +2441,7 @@ function App() {
                   <button
                     key={col.id}
                     onClick={async () => {
-                      await fetchWithAuth(`http://localhost:3000/knowledge/artifacts/${showAddToCollectionModal.artifactId}/collections`, {
+                      await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${showAddToCollectionModal.artifactId}/collections`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ collectionId: col.id })
@@ -2480,3 +2474,7 @@ export default function AppWrapper() {
     </ErrorBoundary>
   );
 }
+
+
+
+
