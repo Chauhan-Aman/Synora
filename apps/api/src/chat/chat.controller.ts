@@ -202,6 +202,9 @@ Guidelines:
         res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
         res.end();
       }
+    }
+  }
+
   @Get('sessions')
   async getSessions(@CurrentUser() user: any) {
     if (!user?.userId) return [];
