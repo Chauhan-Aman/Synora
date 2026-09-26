@@ -196,12 +196,12 @@ Guidelines:
       if (!res.headersSent) {
         res
           .status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .json({ message: 'Failed to communicate with local AI.' });
+          .json({ message: 'Failed to communicate with Synora.' });
       } else {
         res.write(
           `data: ${JSON.stringify({
             type: 'text',
-            text: '\n\n**System Error:** Failed to connect to the local AI. Please ensure Ollama is running (`ollama serve`) and the selected model has been pulled.',
+            text: '\n\n**System Error:** Failed to connect to Synora. Please ensure Ollama is running (`ollama serve`) and the selected model has been pulled.',
           })}\n\n`,
         );
         res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);

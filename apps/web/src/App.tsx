@@ -215,7 +215,7 @@ function App() {
   const [forceWebSearch, setForceWebSearch] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
     role: 'assistant',
-    content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
+    content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
   }]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -683,7 +683,7 @@ function App() {
         const newHistory = [...prev];
         newHistory[newHistory.length - 1] = { 
           role: 'assistant', 
-          content: "Oops! Something went wrong trying to connect to the local AI. Ensure Ollama is running." 
+          content: "Oops! Something went wrong trying to connect to Synora. Ensure Ollama is running." 
         };
         return newHistory;
       });
@@ -1726,7 +1726,7 @@ function App() {
                         setCurrentSessionId(null);
                         setChatHistory([{
                           role: 'assistant',
-                          content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
+                          content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
                         }]);
                       }}
                       className="flex items-center gap-2 text-xs bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-white hover:border-synora-accent transition-colors"
