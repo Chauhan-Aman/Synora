@@ -217,6 +217,7 @@ function App() {
     role: 'assistant',
     content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
   }]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Voice State
@@ -605,7 +606,7 @@ function App() {
       const response = await fetchWithAuth('http://localhost:3001/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig }),
+        body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig, sessionId: currentSessionId }),
       });
 
       if (!response.ok) throw new Error('Failed to fetch chat response');
@@ -626,7 +627,9 @@ function App() {
             const dataStr = msg.substring(6);
             try {
               const data = JSON.parse(dataStr);
-              if (data.type === 'log') {
+              if (data.type === 'session_info') {
+                setCurrentSessionId(data.sessionId);
+              } else if (data.type === 'log') {
                 setChatHistory(prev => {
                   const newHistory = [...prev];
                   const lastMsg = newHistory[newHistory.length - 1];
@@ -1718,6 +1721,18 @@ function App() {
               <div className="p-4 bg-synora-surface border-t border-synora-border shrink-0">
                 <div className="flex items-center justify-between mb-2 px-2">
                   <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => {
+                        setCurrentSessionId(null);
+                        setChatHistory([{
+                          role: 'assistant',
+                          content: "Hi! I'm your local AI. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
+                        }]);
+                      }}
+                      className="flex items-center gap-2 text-xs bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-white hover:border-synora-accent transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> New Chat
+                    </button>
                     <label className="flex items-center gap-2 text-xs text-synora-text-secondary cursor-pointer hover:text-white transition-colors">
                       <input 
                         type="checkbox" 
