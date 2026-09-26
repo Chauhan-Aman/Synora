@@ -143,7 +143,7 @@ export class LlmService {
     res: Response,
     userId: string,
     callbacks: AgentLoopCallbacks = {},
-  ): Promise<void> {
+  ): Promise<string> {
     const targetModel = ModelRouter.getBestModel(modelType, modelParam);
     const tools = this.toolRegistry.getOllamaToolsForUser(userId);
 
@@ -213,7 +213,7 @@ export class LlmService {
           `data: ${JSON.stringify({ type: 'text', text: finalText })}\n\n`,
         );
         this.logger.log(`[AgentLoop] Completed after ${loopCount} iteration(s).`);
-        return;
+        return finalText;
       }
     }
 
@@ -221,8 +221,10 @@ export class LlmService {
     this.logger.warn(
       `[AgentLoop] Hit max loop limit (${LlmService.MAX_AGENT_LOOPS}) for user [${userId}]. Forcing completion.`,
     );
+    const fallbackText = '\n\n[Agent reached its reasoning limit. Please try a simpler query or check tool availability.]';
     res.write(
-      `data: ${JSON.stringify({ type: 'text', text: '\n\n[Agent reached its reasoning limit. Please try a simpler query or check tool availability.]' })}\n\n`,
+      `data: ${JSON.stringify({ type: 'text', text: fallbackText })}\n\n`,
     );
+    return fallbackText;
   }
 }

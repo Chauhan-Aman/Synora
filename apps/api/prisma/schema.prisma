@@ -25,6 +25,7 @@ model User {
   collections  Collection[]
   insights     Insight[]
   annotations  Annotation[]
+  chatSessions ChatSession[]
 }
 
 model Artifact {
@@ -175,4 +176,27 @@ model Annotation {
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+model ChatSession {
+  id        String   @id @default(uuid())
+  title     String?
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messages  ChatMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id            String   @id @default(uuid())
+  role          String   // "user" or "assistant"
+  content       String
+  
+  sessionId     String
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now())
 }

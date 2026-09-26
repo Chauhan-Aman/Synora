@@ -1,6 +1,8 @@
 import {
   Controller,
   Post,
+  Get,
+  Param,
   Body,
   HttpException,
   HttpStatus,
@@ -35,6 +37,7 @@ export class ChatController {
   async chat(
     @Body('query') query: string,
     @Body('history') history: any[],
+    @Body('sessionId') clientSessionId: string | undefined,
     @CurrentUser() user: any,
     @Res() res: Response,
     @Body('model') modelParam?: string,
@@ -46,16 +49,43 @@ export class ChatController {
     const userId: string = user?.userId ?? 'anonymous';
 
     try {
+      // --- Session Management ---
+      let sessionId = clientSessionId;
+      
+      // We only save to DB if it's a real logged-in user
+      if (userId !== 'anonymous') {
+        if (!sessionId) {
+          // Create a new session
+          const newSession = await this.prisma.chatSession.create({
+            data: { 
+              userId,
+              title: query.substring(0, 50) + (query.length > 50 ? '...' : '') 
+            }
+          });
+          sessionId = newSession.id;
+        }
+
+        // Save the user's incoming message
+        await this.prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId!,
+            role: 'user',
+            content: query
+          }
+        });
+      }
+
       // --- SSE Setup ---
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders();
+      
+      // Tell frontend about the session ID so it can append future messages to it
+      if (sessionId) {
+        res.write(`data: ${JSON.stringify({ type: 'session_info', sessionId })}\n\n`);
+      }
 
-      /**
-       * Sends a structured log event to the frontend Agentic Workflow panel.
-       * Status: 'pending' shows a spinner, 'done' shows a check, 'error' shows an X.
-       */
       const sendLog = (
         action: string,
         status: 'pending' | 'done' | 'error',
@@ -66,9 +96,11 @@ export class ChatController {
         );
       };
 
-      this.logger.log(`[Chat] User [${userId}] query: "${query}"`);
+      this.logger.log(`[Chat] User [${userId}] query: "${query}" (Session: ${sessionId || 'none'})`);
 
       // --- Build conversation messages ---
+      // We still pass the frontend history for the LLM context to keep things fast,
+      // but in the future we could load it from Prisma if we want.
       const historyMessages =
         history && history.length > 0
           ? history
@@ -102,7 +134,7 @@ Guidelines:
       sendLog('Thinking', 'done', 'Analyzed your query — selecting the best approach...');
 
       // --- Delegate to the Autonomous Agentic Loop ---
-      await this.llmService.chatWithTools(
+      const finalAssistantText = await this.llmService.chatWithTools(
         'REASONING',
         modelParam,
         messages as any,
@@ -137,6 +169,17 @@ Guidelines:
         },
       );
 
+      // Save the assistant's final response to the database
+      if (userId !== 'anonymous' && sessionId) {
+        await this.prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId,
+            role: 'assistant',
+            content: finalAssistantText
+          }
+        });
+      }
+
       sendLog('Generating', 'done', 'Response complete.');
 
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
@@ -159,7 +202,40 @@ Guidelines:
         res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
         res.end();
       }
+  @Get('sessions')
+  async getSessions(@CurrentUser() user: any) {
+    if (!user?.userId) return [];
+    
+    return this.prisma.chatSession.findMany({
+      where: { userId: user.userId },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
+  @Get('sessions/:id')
+  async getSessionMessages(@Param('id') sessionId: string, @CurrentUser() user: any) {
+    if (!user?.userId) throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+
+    const session = await this.prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    if (!session || session.userId !== user.userId) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
     }
+
+    return session;
   }
 
   /**
