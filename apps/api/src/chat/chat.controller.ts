@@ -13,6 +13,8 @@ import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { LlmService } from '../common/llm.service';
 
+import { PrismaService } from '../prisma/prisma.service';
+
 /**
  * ChatController — the primary entry point for the Synora AI chat interface.
  *
@@ -31,7 +33,10 @@ import { LlmService } from '../common/llm.service';
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly llmService: LlmService) {}
+  constructor(
+    private readonly llmService: LlmService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Post()
   async chat(
