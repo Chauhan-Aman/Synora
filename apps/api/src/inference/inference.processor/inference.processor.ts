@@ -1,4 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { YoutubeTranscript } from 'youtube-transcript';
 import { Job } from 'bullmq';
 import { ModelRouter } from '../../common/model-router';
 import { LlmService } from '../../common/llm.service';
@@ -48,13 +49,32 @@ export class InferenceProcessor extends WorkerHost {
       let contentToProcess = artifact.content || '';
 
       if (artifact.type === 'URL' && artifact.sourceUrl) {
-        this.logger.log(`Fetching content from URL: ${artifact.sourceUrl}`);
-        const response = await fetch(artifact.sourceUrl);
-        const html = await response.text();
+        if (artifact.sourceUrl.includes('youtube.com') || artifact.sourceUrl.includes('youtu.be')) {
+          this.logger.log(`Fetching YouTube transcript for: ${artifact.sourceUrl}`);
+          try {
+            let transcript;
+            try {
+              // Try forcing English first
+              transcript = await YoutubeTranscript.fetchTranscript(artifact.sourceUrl, { lang: 'en' });
+            } catch (e: any) {
+              // If English isn't available, just get whatever the default is
+              this.logger.log(`English transcript not found, falling back to default language...`);
+              transcript = await YoutubeTranscript.fetchTranscript(artifact.sourceUrl);
+            }
+            contentToProcess = transcript.map(t => t.text).join(' ').replace(/\s+/g, ' ').trim();
+          } catch (error: any) {
+            this.logger.warn(`Failed to fetch YouTube transcript: ${error.message}`);
+            contentToProcess = "Failed to fetch YouTube transcript.";
+          }
+        } else {
+          this.logger.log(`Fetching content from URL: ${artifact.sourceUrl}`);
+          const response = await fetch(artifact.sourceUrl);
+          const html = await response.text();
 
-        const $ = cheerio.load(html);
-        $('script, style, nav, footer, iframe').remove();
-        contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
+          const $ = cheerio.load(html);
+          $('script, style, nav, footer, iframe').remove();
+          contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
+        }
 
         await this.prisma.artifact.update({
           where: { id: artifactId },
@@ -104,22 +124,35 @@ export class InferenceProcessor extends WorkerHost {
       this.logger.log(`Sending to Ollama (${targetModel}) for extraction...`);
 
       const prompt = `
-        You are a highly capable AI specialized in extracting structured knowledge graphs from text.
-        Extract the most important topics, named entities, a short summary, and 3 Question & Answer flashcards to test the user's knowledge on this text.
+        You are an expert Knowledge Graph AI. Your ONLY job is to extract MEANINGFUL, ACCURATE structured data from the given text.
+
+        STRICT RULES — READ CAREFULLY:
         
+        For "topics" (array of strings):
+        - ONLY extract the core academic, technical, or professional subjects discussed.
+        - Topics must be 2-5 words and read like Wikipedia article titles (e.g., "Dynamic Programming", "Recursion Tree", "Backtracking Algorithms").
+        - DO NOT extract: speaker names, channel names, platform names (YouTube, etc.), greetings, single letters (K, X, n), generic words (Sum, Number, List), or any conversational/social context.
+        - Maximum 5 topics. Quality over quantity.
+
+        For "entities" (array of objects):
+        - ONLY extract SPECIFIC, REAL-WORLD named entities that are CENTRAL to the text's subject matter.
+        - Valid entity types: PERSON (real historical/technical figures), ORGANIZATION (real companies/institutions), TECHNOLOGY (specific programming languages/tools/frameworks), CONCEPT (well-defined academic concepts).
+        - DO NOT extract: variable names, social media platforms, TV shows, channel names, or anything not directly relevant to the core topic.
+        - If unsure, leave it out. Empty array is better than wrong entities.
+
         TEXT TO ANALYZE:
         "${contentToProcess.substring(0, 4000)}"
         
-        Respond ONLY with a valid JSON object matching this exact schema. DO NOT just copy the example text in the schema, you must GENERATE REAL content based on the TEXT TO ANALYZE:
+        Respond ONLY with a valid JSON object. No markdown, no code blocks, just raw JSON:
         {
-          "title": "A short, catchy, 3 to 6 word title for this document",
-          "summary": "A 2-3 sentence summary of the text",
-          "topics": ["Real Topic 1", "Real Topic 2", "Real Topic 3"],
+          "title": "3-6 word descriptive title of the TOPIC, not the source",
+          "summary": "2-3 sentences summarizing the core technical/academic content only",
+          "topics": ["Core Technical Topic 1", "Algorithm or Concept 2"],
           "entities": [
-            {"name": "Real Entity Name", "type": "PERSON | ORGANIZATION | TECHNOLOGY | LOCATION | CONCEPT"}
+            {"name": "Specific Named Entity", "type": "PERSON | ORGANIZATION | TECHNOLOGY | CONCEPT"}
           ],
           "flashcards": [
-            {"question": "A real question testing a specific fact from the text", "answer": "The real factual answer from the text"}
+            {"question": "Specific technical question about the core subject", "answer": "Precise factual answer from the text"}
           ]
         }
       `;

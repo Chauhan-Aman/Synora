@@ -81,7 +81,7 @@ export function DiagramViewer({ code, className = '' }: DiagramViewerProps) {
           minScale={0.1}
           maxScale={5}
           centerOnInit={true}
-          wheel={{ step: 0.1 }}
+          wheel={{ step: 0.1, disabled: true }}
         >
           {({ zoomIn, zoomOut, resetTransform }) => (
             <>

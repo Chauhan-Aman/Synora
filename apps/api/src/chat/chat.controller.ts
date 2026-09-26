@@ -103,6 +103,14 @@ export class ChatController {
 
       this.logger.log(`[Chat] User [${userId}] query: "${query}" (Session: ${sessionId || 'none'})`);
 
+      let userPreferences = '';
+      if (userId !== 'anonymous') {
+        const dbUser = await this.prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } });
+        if (dbUser?.preferences) {
+          userPreferences = `\n\nUser Preferences/Custom Instructions:\n${dbUser.preferences}`;
+        }
+      }
+
       // --- Build conversation messages ---
       // We still pass the frontend history for the LLM context to keep things fast,
       // but in the future we could load it from Prisma if we want.
@@ -128,7 +136,7 @@ Guidelines:
 3. For mathematical or computational tasks, use calculator or code_runner.
 4. Chain tools naturally — search first, scrape to get details, then synthesize the answer.
 5. Be concise, helpful, and transparent about your sources.
-6. If tools fail, answer from your general knowledge and note the limitation.`;
+6. If tools fail, answer from your general knowledge and note the limitation.${userPreferences}`;
 
       const messages = [
         { role: 'system', content: systemPrompt },

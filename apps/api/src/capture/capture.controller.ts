@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
 import { CaptureService } from './capture.service';
 import { CreateCaptureDto } from './dto/create-capture.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -49,5 +49,39 @@ export class CaptureController {
     };
     
     return this.captureService.create(dto, user.userId);
+  }
+
+  @Post(':id/translate')
+  async translateToEnglish(@Param('id') id: string, @CurrentUser() user: any) {
+    const artifact = await this.captureService.getArtifact(id, user.userId);
+    if (!artifact) throw new BadRequestException('Artifact not found');
+
+    const prompt = `You are an expert technical writer and editor. Your task is to rewrite the following raw transcript into a highly readable, well-structured, and comprehensive article in English.
+
+    RULES:
+    1. Organize the content with clear, descriptive markdown headings (e.g., ## Introduction, ## Main Concepts).
+    2. Remove all verbal tics, repetitions, and conversational filler (e.g., "Hello viewers", "If you remember", "Okay let's talk about").
+    3. Break up large walls of text into digestible paragraphs and bullet points.
+    4. Preserve all technical details, logic, examples, and formulas.
+    5. Translate to English if the original text is in another language.
+    6. Respond ONLY with the finalized markdown article. Do not add conversational filler.
+    
+    RAW TRANSCRIPT:
+    ${artifact.content}`;
+
+    const res = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama3.1',
+        prompt: prompt,
+        stream: false
+      })
+    });
+
+    const data = await res.json();
+    const translatedText = data.response;
+
+    return this.captureService.updateArtifactContent(id, translatedText, user.userId);
   }
 }

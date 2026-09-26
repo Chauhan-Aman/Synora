@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { BrainCircuit, CheckCircle, Compass, FileText, GraduationCap, Key, Layers, Link, Loader2, LogOut, MessageSquare, Plus, Rss, Settings, Sparkles, X, Copy, Trash2, Edit3, Type, Box, Mic, MicOff, Search, Network, List as ListIcon, Workflow, Hash, Volume2, VolumeX, Send, Image as ImageIcon, Briefcase, MessageCircle, Mail, CheckSquare, Square, Download, Printer } from 'lucide-react';
+import { BrainCircuit, CheckCircle, Compass, FileText, GraduationCap, Key, Layers, Link, Loader2, LogOut, MessageSquare, Plus, Rss, Settings, Sparkles, X, Copy, Trash2, Edit3, Type, Box, Mic, MicOff, Search, Network, List as ListIcon, Workflow, Hash, Volume2, VolumeX, Send, Image as ImageIcon, Briefcase, MessageCircle, Mail, CheckSquare, Square, Download, Printer, Globe } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import ForceGraph2D from 'react-force-graph-2d';
+import ForceGraph3D from 'react-force-graph-3d';
+import SpriteText from 'three-spritetext';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
 import { ProceduralCover } from './components/ProceduralCover';
@@ -84,6 +85,8 @@ function App() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [userPreferences, setUserPreferences] = useState('');
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const [activeTab, setActiveTab] = useState<Tab>('CAPTURE');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -100,8 +103,18 @@ function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  
+  // Toast State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
   const [graphData, setGraphData] = useState<{nodes: any[], links: any[]}>({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -263,6 +276,15 @@ function App() {
     if (token && activeTab === 'DISCOVER') fetchDiscover();
     if (token && activeTab === 'PUBLISH') fetchKnowledge();
   }, [activeTab, token]);
+
+  useEffect(() => {
+    if (token) {
+      fetchWithAuth('http://localhost:3001/auth/profile')
+        .then(res => res.json())
+        .then(data => setUserPreferences(data.preferences || ''))
+        .catch(err => console.error('Failed to fetch profile', err));
+    }
+  }, [token]);
 
   useEffect(() => {
     if (activeTab !== 'CREATE' || !token) return;
@@ -492,13 +514,36 @@ function App() {
     }
   };
 
+  const handleTranslate = async (artifactId: string) => {
+    setIsTranslating(true);
+    showToast("Translating to English...", "info");
+    try {
+      const res = await fetchWithAuth(`http://localhost:3001/capture/${artifactId}/translate`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Translation failed');
+      const updatedArtifact = await res.json();
+      
+      setSelectedArtifact(prev => prev ? { ...prev, ...updatedArtifact } : updatedArtifact);
+      
+      // Update the artifacts list
+      setArtifacts(prev => prev.map(a => a.id === artifactId ? { ...a, ...updatedArtifact } : a));
+      showToast("Translation complete!", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Translation failed. Ensure Ollama is running.", "error");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const handleExplore = async (id: string) => {
     setExploringId(id);
     try {
       const res = await fetchWithAuth(`http://localhost:3001/discovery/${id}/explore`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to explore');
       setRecommendations(prev => prev.filter(r => r.id !== id));
-      alert("Artifact generated and sent for processing! Check your Knowledge Graph soon.");
+      showToast("Artifact generated and sent for processing! Check your Knowledge Graph soon.", "success");
     } catch (err) {
       console.error(err);
     } finally {
@@ -886,6 +931,48 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden h-screen">
+      
+      {/* Global Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 left-4 z-[200] px-4 py-2 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-2 animate-fade-in ${
+          toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+          'bg-synora-surface/80 border-synora-border text-white'
+        }`}>
+          {toast.type === 'error' && <X className="w-4 h-4" />}
+          {toast.type === 'success' && <CheckCircle className="w-4 h-4" />}
+          {toast.type === 'info' && <MessageCircle className="w-4 h-4 text-synora-accent" />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {/* Global Confirm Modal */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center animate-fade-in p-4">
+          <div className="bg-synora-surface border border-synora-border shadow-2xl rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-white mb-2">{confirmDialog.title}</h3>
+            <p className="text-synora-text-secondary mb-6 leading-relaxed">{confirmDialog.message}</p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 text-sm font-medium text-synora-text-secondary hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(null);
+                }}
+                className="px-4 py-2 text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-synora-accent/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-synora-accent/10 rounded-full blur-[100px] pointer-events-none" />
 
@@ -915,7 +1002,7 @@ function App() {
             {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE', 'PUBLISH'] as Tab[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); setSelectedArtifact(null); setArtifactDiagram(null); }}
                 className={`flex-1 flex min-w-[100px] items-center justify-center gap-2 py-3 px-2 rounded-xl font-medium transition-all duration-300 ${
                   activeTab === tab
                     ? 'bg-synora-bg text-synora-text-primary shadow-md border border-synora-border/50 scale-100'
@@ -958,7 +1045,7 @@ function App() {
 
               <form onSubmit={handleCaptureSubmit} className="space-y-4">
                 {inputType === 'URL' ? (
-                  <input type="url" placeholder="https://example.com/article" className="glass-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
+                  <input type="url" placeholder="https://example.com/article or https://youtube.com/watch?v=..." className="glass-input" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
                 ) : inputType === 'TEXT' ? (
                   <textarea placeholder="Paste your text snippet here..." className="glass-input min-h-[120px] resize-y" value={inputValue} onChange={(e) => setInputValue(e.target.value)} disabled={isSubmitting} required />
                 ) : inputType === 'FILE' ? (
@@ -1017,13 +1104,13 @@ function App() {
                 </h2>
                 
                 <div className="flex bg-synora-bg p-1 rounded-xl">
-                  <button onClick={() => setKnowledgeView('LIST')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'LIST' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
+                  <button onClick={() => { setKnowledgeView('LIST'); setSelectedArtifact(null); setArtifactDiagram(null); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'LIST' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                     <ListIcon className="w-4 h-4" /> List
                   </button>
-                  <button onClick={() => setKnowledgeView('GRAPH')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'GRAPH' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
+                  <button onClick={() => { setKnowledgeView('GRAPH'); setSelectedArtifact(null); setArtifactDiagram(null); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'GRAPH' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                     <Network className="w-4 h-4" /> Graph
                   </button>
-                  <button onClick={() => setKnowledgeView('INSIGHTS')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'INSIGHTS' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
+                  <button onClick={() => { setKnowledgeView('INSIGHTS'); setSelectedArtifact(null); setArtifactDiagram(null); }} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${knowledgeView === 'INSIGHTS' ? 'bg-synora-surface text-synora-text-primary shadow-sm' : 'text-synora-text-secondary hover:text-synora-text-primary'}`}>
                     <Sparkles className="w-4 h-4" /> Insights
                   </button>
                 </div>
@@ -1116,7 +1203,7 @@ function App() {
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (collections.length === 0) return alert("Create a collection first!");
+                                        if (collections.length === 0) return showToast("Create a collection first!", "error");
                                         setShowAddToCollectionModal({ artifactId: artifact.id });
                                       }}
                                       className="text-xs px-2 py-1 bg-synora-bg hover:bg-synora-accent/20 rounded-md text-synora-text-secondary hover:text-synora-accent transition-colors"
@@ -1126,7 +1213,7 @@ function App() {
                                     <span className="text-xs text-synora-text-secondary whitespace-nowrap">{new Date(artifact.createdAt).toLocaleDateString()}</span>
                                   </div>
                                 </div>
-                                <h4 className="text-lg font-bold text-white group-hover:text-synora-accent transition-colors truncate">{artifact.title}</h4>
+                                <h4 className="text-lg font-bold text-white group-hover:text-synora-accent transition-colors break-words">{artifact.title}</h4>
                                 <p className="text-sm text-synora-text-secondary line-clamp-2">{artifact.summary || artifact.content?.substring(0, 150)}</p>
                               </div>
                             ))}
@@ -1223,29 +1310,48 @@ function App() {
                   ) : (
                     <div className="w-full h-full bg-synora-bg/50 border border-synora-border rounded-xl absolute inset-0">
                       {graphDimensions.width > 0 && (
-                        <ForceGraph2D
+                        <ForceGraph3D
                           ref={fgRef}
                           graphData={graphData}
                           width={graphDimensions.width}
                           height={graphDimensions.height}
-                          nodeRelSize={6}
-                          linkDirectionalArrowLength={4}
-                          linkDirectionalArrowRelPos={1}
-                          nodeCanvasObject={renderNode}
-                          nodePointerAreaPaint={(node, color, ctx) => {
-                            ctx.fillStyle = color;
-                            const bckgDimensions = [ctx.measureText(node.name).width + 20, 20];
-                            ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1]);
+                          backgroundColor="rgba(0,0,0,0)"
+                          nodeRelSize={5}
+                          nodeLabel={(node: any) => node.name}
+                          nodeColor={(node: any) => {
+                            if (selectedNode && selectedNode.id === node.id) return '#f59e0b';
+                            if (node.group === 'artifact') return '#10b981';
+                            if (node.group === 'topic') return '#8b5cf6';
+                            return '#3b82f6';
                           }}
-                          linkColor={() => 'rgba(148, 163, 184, 0.3)'}
-                          linkWidth={1.5}
+                          nodeOpacity={0.9}
+                          nodeResolution={16}
+                          nodeThreeObjectExtend={true}
+                          nodeThreeObject={(node: any) => {
+                            const sprite = new SpriteText(node.name);
+                            const color = node.group === 'artifact' ? '#10b981' : node.group === 'topic' ? '#c4b5fd' : '#93c5fd';
+                            sprite.color = '#ffffff';
+                            sprite.backgroundColor = node.group === 'artifact' ? 'rgba(16,185,129,0.15)' : node.group === 'topic' ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)';
+                            sprite.borderColor = color;
+                            sprite.borderWidth = 0.5;
+                            sprite.borderRadius = 4;
+                            sprite.padding = 2;
+                            sprite.textHeight = 3.5;
+                            sprite.fontFace = 'Inter, sans-serif';
+                            sprite.fontWeight = '600';
+                            sprite.position.y = 8;
+                            return sprite;
+                          }}
+                          linkColor={() => 'rgba(148, 163, 184, 0.2)'}
+                          linkWidth={0.8}
+                          linkOpacity={0.5}
+                          linkDirectionalParticles={2}
+                          linkDirectionalParticleWidth={(link: any) => selectedNode && (link.source?.id === selectedNode.id || link.target?.id === selectedNode.id) ? 2 : 0}
+                          linkDirectionalParticleColor={() => '#a78bfa'}
+                          linkDirectionalParticleSpeed={0.004}
                           d3VelocityDecay={0.3}
-                          cooldownTicks={100}
-                          onNodeClick={(node) => setSelectedNode(node)}
-                          onNodeDragEnd={(node) => {
-                            node.fx = node.x;
-                            node.fy = node.y;
-                          }}
+                          cooldownTicks={150}
+                          onNodeClick={(node: any) => setSelectedNode(node)}
                         />
                       )}
                       
@@ -1367,6 +1473,8 @@ function App() {
                           onClick={() => {
                             setChatQuery(`Tell me everything you know about ${selectedNode.name}.`);
                             setActiveTab('CHAT');
+                            setSelectedArtifact(null);
+                            setArtifactDiagram(null);
                           }} 
                           className="w-full btn-primary flex items-center justify-center gap-2 py-3 shadow-lg shadow-synora-accent/20"
                         >
@@ -1402,20 +1510,53 @@ function App() {
                           <span className="text-xs font-bold px-2 py-1 rounded-full border bg-synora-surface text-synora-accent border-synora-accent/30 mb-2 inline-block">
                             {selectedArtifact.type}
                           </span>
-                          <h2 className="text-2xl font-bold text-white max-w-2xl truncate">
+                          <h2 className="text-2xl font-bold text-white max-w-2xl break-words">
                             {selectedArtifact.title || (selectedArtifact.sourceUrl ? selectedArtifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : 'Unknown Document')}
                           </h2>
                           <p className="text-sm text-synora-text-secondary mt-1">{new Date(selectedArtifact.createdAt).toLocaleString()}</p>
                         </div>
-                        <button 
-                          onClick={() => {
-                            setSelectedArtifact(null);
-                            setArtifactDiagram(null);
-                          }} 
-                          className="glass-button p-2"
-                        >
-                          <X className="w-6 h-6" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => {
+                              setConfirmDialog({
+                                isOpen: true,
+                                title: 'Delete Document',
+                                message: 'Are you sure you want to permanently delete this document? This action cannot be undone and will remove it from your knowledge graph.',
+                                onConfirm: async () => {
+                                  try {
+                                    const res = await fetch(`http://localhost:3001/capture/${selectedArtifact.id}`, {
+                                      method: 'DELETE',
+                                      headers: { 'Authorization': `Bearer ${token}` }
+                                    });
+                                    if (res.ok) {
+                                      setArtifacts(artifacts.filter((a: any) => a.id !== selectedArtifact.id));
+                                      setSelectedArtifact(null);
+                                      setArtifactDiagram(null);
+                                      fetchKnowledge(); // refresh graph
+                                      showToast('Document deleted successfully', 'success');
+                                    }
+                                  } catch (e) {
+                                    console.error('Failed to delete', e);
+                                    showToast('Failed to delete document', 'error');
+                                  }
+                                }
+                              });
+                            }}
+                            className="glass-button p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setSelectedArtifact(null);
+                              setArtifactDiagram(null);
+                            }} 
+                            className="glass-button p-2"
+                          >
+                            <X className="w-6 h-6" />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full flex flex-col gap-8 pb-16">
                         
@@ -1463,9 +1604,25 @@ function App() {
                           </div>
                         )}
                         <div className="shrink-0">
-                          <h3 className="text-sm font-bold text-synora-text-secondary uppercase mb-4 flex items-center gap-2"><FileText className="w-4 h-4"/> Full Document Content</h3>
-                          <div className="bg-synora-surface border border-synora-border p-6 rounded-2xl font-serif text-lg leading-loose text-white/80 whitespace-pre-wrap">
-                            {selectedArtifact.content || "No content available. It might still be processing, or this was a URL scrape without raw content saved."}
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-bold text-synora-text-secondary uppercase flex items-center gap-2"><FileText className="w-4 h-4"/> Full Document Content</h3>
+                            <button 
+                              onClick={() => handleTranslate(selectedArtifact.id)}
+                              disabled={isTranslating}
+                              className="text-xs px-3 py-1 bg-synora-accent/10 hover:bg-synora-accent/20 text-synora-accent border border-synora-accent/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {isTranslating ? <div className="w-3 h-3 rounded-full border-2 border-synora-accent border-t-transparent animate-spin" /> : <Globe className="w-3 h-3" />}
+                              Translate to English
+                            </button>
+                          </div>
+                          <div className="bg-synora-surface border border-synora-border p-6 rounded-2xl font-serif text-lg leading-loose text-white/80 markdown-prose prose-invert prose-p:text-white/80 prose-headings:text-white prose-a:text-synora-accent prose-strong:text-white prose-ul:text-white/80 max-w-none">
+                            {selectedArtifact.content ? (
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {selectedArtifact.content}
+                              </ReactMarkdown>
+                            ) : (
+                              "No content available. It might still be processing, or this was a URL scrape without raw content saved."
+                            )}
                           </div>
                         </div>
                         {selectedArtifact.topics.length > 0 && (
@@ -1531,14 +1688,27 @@ function App() {
                                 <div key={ann.id} className="bg-synora-surface/50 border border-synora-border p-3 rounded-lg flex items-start justify-between group">
                                   <p className="text-sm text-white/90">{ann.text}</p>
                                   <button 
-                                    onClick={async () => {
-                                      const res = await fetch(`http://localhost:3001/annotations/${ann.id}`, {
-                                        method: 'DELETE',
-                                        headers: { 'Authorization': `Bearer ${token}` }
+                                    onClick={() => {
+                                      setConfirmDialog({
+                                        isOpen: true,
+                                        title: 'Delete Annotation',
+                                        message: 'Are you sure you want to delete this annotation?',
+                                        onConfirm: async () => {
+                                          try {
+                                            const res = await fetch(`http://localhost:3001/annotations/${ann.id}`, {
+                                              method: 'DELETE',
+                                              headers: { 'Authorization': `Bearer ${token}` }
+                                            });
+                                            if (res.ok) {
+                                              setAnnotations(annotations.filter(a => a.id !== ann.id));
+                                              showToast('Annotation deleted', 'success');
+                                            }
+                                          } catch (e) {
+                                            console.error('Failed to delete annotation', e);
+                                            showToast('Failed to delete annotation', 'error');
+                                          }
+                                        }
                                       });
-                                      if (res.ok) {
-                                        setAnnotations(annotations.filter(a => a.id !== ann.id));
-                                      }
                                     }}
                                     className="opacity-0 group-hover:opacity-100 p-1 text-synora-text-secondary hover:text-red-400 transition-all shrink-0 ml-2"
                                   >
@@ -2157,6 +2327,47 @@ function App() {
                       <button onClick={handleLogout} className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium">
                         Log Out
                       </button>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-synora-accent" /> AI Personality & Custom Instructions
+                    </h3>
+                    <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5">
+                      <p className="text-sm text-synora-text-secondary mb-4">
+                        Tell Synora how you want it to behave. (e.g. "Always answer like a pirate", "Keep answers short", "Prefer Python code").
+                      </p>
+                      <textarea 
+                        className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm p-3 min-h-[100px] resize-y custom-scrollbar"
+                        placeholder="Enter your preferences here..."
+                        value={userPreferences}
+                        onChange={(e) => setUserPreferences(e.target.value)}
+                      />
+                      <div className="flex justify-end mt-4">
+                        <button 
+                          disabled={isSavingPreferences}
+                          onClick={async () => {
+                            setIsSavingPreferences(true);
+                            try {
+                              await fetchWithAuth('http://localhost:3001/auth/profile', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ preferences: userPreferences })
+                              });
+                              setIsSettingsOpen(false); // Close modal on success
+                            } catch (e) {
+                              console.error(e);
+                            } finally {
+                              setIsSavingPreferences(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-synora-accent text-white rounded-lg hover:bg-synora-accent/90 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                        >
+                          {isSavingPreferences ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                          {isSavingPreferences ? 'Saving...' : 'Save Preferences'}
+                        </button>
+                      </div>
                     </div>
                   </section>
                 </div>

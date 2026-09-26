@@ -224,15 +224,17 @@ export class KnowledgeService {
       2. One "CONFLICT": A contradiction, opposing viewpoint, or nuanced tension present within the captured facts/summaries.
       3. One "EVOLUTION": A temporal analysis showing how their understanding or focus on a specific topic has changed or deepened chronologically over time.
 
-      Respond ONLY with a valid JSON array of objects matching this exact schema:
-      [
-        {
-          "type": "GAP" | "CONFLICT" | "EVOLUTION",
-          "title": "Short punchy title",
-          "description": "Detailed 2-3 sentence explanation of the insight based strictly on the provided context.",
-          "sources": ["Topic 1", "Topic 2", "Or Artifact Title"]
-        }
-      ]
+      Respond ONLY with a valid JSON object containing an "insights" array matching this exact schema:
+      {
+        "insights": [
+          {
+            "type": "GAP" | "CONFLICT" | "EVOLUTION",
+            "title": "Short punchy title",
+            "description": "Detailed 2-3 sentence explanation of the insight based strictly on the provided context.",
+            "sources": ["Topic 1", "Topic 2", "Or Artifact Title"]
+          }
+        ]
+      }
     `;
 
     try {
@@ -280,6 +282,11 @@ export class KnowledgeService {
         }
         insightsList = extracted;
       }
+
+      // Delete old insights
+      await this.prisma.insight.deleteMany({
+        where: { userId }
+      });
 
       // Save to database
       for (const insight of insightsList) {

@@ -211,3 +211,17 @@ These are ambitious ideas that may require external APIs or significant R&D:
 > [!NOTE]
 > All phases marked as "Free" run entirely on local hardware (RTX 5070 12GB).  
 > No cloud APIs, no subscriptions, no data ever leaves your machine.
+
+### Phase 20 - Persistent Conversation Memory
+- [x] Prisma schema updates for ChatSession and ChatMessage
+- [x] Chat history persistence and retrieval endpoints
+- [x] UI updates for starting new chat sessions and associating history
+
+### Phase 21 - User Preference Profile
+- [x] Added custom instructions text box in Settings UI
+- [x] Preferences injected directly into LLM system prompt on every request
+
+### Phase 22 - Multi-Modal Capture
+- [x] PDF text extraction via pdf-parse
+- [x] Image transcription via llama3.2-vision
+- [x] YouTube transcript extraction via youtube-transcript

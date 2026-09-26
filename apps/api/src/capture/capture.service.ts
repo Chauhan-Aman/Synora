@@ -38,4 +38,16 @@ export class CaptureService {
       artifactId: artifact.id,
     };
   }
+  async getArtifact(id: string, userId: string) {
+    return this.prisma.artifact.findUnique({
+      where: { id, userId }
+    });
+  }
+
+  async updateArtifactContent(id: string, newContent: string, userId: string) {
+    return this.prisma.artifact.update({
+      where: { id, userId },
+      data: { content: newContent }
+    });
+  }
 }
