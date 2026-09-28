@@ -50,4 +50,27 @@ export class CaptureService {
       data: { content: newContent }
     });
   }
+
+  async updateArtifactSummary(id: string, newSummary: string, userId: string) {
+    return this.prisma.artifact.update({
+      where: { id, userId },
+      data: {
+        summary: {
+          upsert: {
+            create: { text: newSummary, userId },
+            update: { text: newSummary }
+          }
+        }
+      },
+      include: {
+        summary: true
+      }
+    });
+  }
+
+  async deleteArtifact(id: string, userId: string) {
+    return this.prisma.artifact.deleteMany({
+      where: { id, userId }
+    });
+  }
 }

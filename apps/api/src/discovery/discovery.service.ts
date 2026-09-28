@@ -12,7 +12,7 @@ export class DiscoveryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue('capture-queue') private captureQueue: Queue,
+    @InjectQueue('capture-processing') private captureQueue: Queue,
     private readonly webSearch: WebSearchService,
     private readonly llmService: LlmService
   ) {}

@@ -1,5 +1,6 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
 import { CaptureService } from './capture.service';
+import { LlmService } from '../common/llm.service';
 import { CreateCaptureDto } from './dto/create-capture.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -10,7 +11,10 @@ import { extname } from 'path';
 @UseGuards(JwtAuthGuard)
 @Controller('capture')
 export class CaptureController {
-  constructor(private readonly captureService: CaptureService) {}
+  constructor(
+    private readonly captureService: CaptureService,
+    private readonly llmService: LlmService
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
@@ -69,19 +73,61 @@ export class CaptureController {
     RAW TRANSCRIPT:
     ${artifact.content}`;
 
-    const res = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3.1',
-        prompt: prompt,
-        stream: false
-      })
+    const translatedText = await this.llmService.generateText({
+      modelType: 'DRAFTING',
+      prompt: prompt
     });
 
-    const data = await res.json();
-    const translatedText = data.response;
-
     return this.captureService.updateArtifactContent(id, translatedText, user.userId);
+  }
+
+  @Post(':id/format')
+  async formatDocument(@Param('id') id: string, @CurrentUser() user: any) {
+    const artifact = await this.captureService.getArtifact(id, user.userId);
+    if (!artifact) throw new BadRequestException('Artifact not found');
+
+    const prompt = `You are an expert technical editor. Your task is to take the following raw scraped text and format it into a beautifully structured markdown document.
+
+    RULES:
+    1. Organize the content with clear, descriptive markdown headings (e.g., ## Introduction).
+    2. Break up large walls of text into digestible paragraphs and bullet points.
+    3. Preserve all technical details, logic, examples, formulas, and exact wording where possible.
+    4. Remove any navigation links, ads, or irrelevant web scraping artifacts that might have slipped through.
+    5. Respond ONLY with the finalized markdown article.
+    
+    RAW TEXT:
+    ${artifact.content}`;
+
+    const formattedText = await this.llmService.generateText({
+      modelType: 'DRAFTING',
+      prompt: prompt
+    });
+
+    return this.captureService.updateArtifactContent(id, formattedText, user.userId);
+  }
+
+  @Post(':id/summary')
+  async generateSummary(@Param('id') id: string, @CurrentUser() user: any) {
+    const artifact = await this.captureService.getArtifact(id, user.userId);
+    if (!artifact) throw new BadRequestException('Artifact not found');
+
+    const prompt = `Write a concise, insightful 2-3 sentence AI summary of the following document.
+    Focus only on the core concepts and the main takeaway.
+    Respond ONLY with the summary text itself.
+    
+    DOCUMENT:
+    ${artifact.content?.substring(0, 4000) || artifact.title}`;
+
+    const summary = await this.llmService.generateText({
+      modelType: 'EXTRACTION',
+      prompt: prompt
+    });
+
+    return this.captureService.updateArtifactSummary(id, summary, user.userId);
+  }
+
+  @Delete(':id')
+  async deleteArtifact(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.captureService.deleteArtifact(id, user.userId);
   }
 }

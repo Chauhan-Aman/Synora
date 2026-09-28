@@ -115,6 +115,8 @@ function App() {
   const [graphData, setGraphData] = useState<{nodes: any[], links: any[]}>({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -318,6 +320,21 @@ function App() {
       fgRef.current.d3Force('link').distance(120);
     }
   }, [graphData, knowledgeView, activeTab]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (confirmDialog && confirmDialog.isOpen) {
+          setConfirmDialog(null);
+        } else if (selectedArtifact) {
+          setSelectedArtifact(null);
+          setArtifactDiagram(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirmDialog, selectedArtifact]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -534,6 +551,48 @@ function App() {
       showToast("Translation failed. Ensure Ollama is running.", "error");
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const handleFormat = async (artifactId: string) => {
+    setIsFormatting(true);
+    showToast("Formatting document...", "info");
+    try {
+      const res = await fetchWithAuth(`http://localhost:3001/capture/${artifactId}/format`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Formatting failed');
+      const updatedArtifact = await res.json();
+      
+      setSelectedArtifact(prev => prev ? { ...prev, ...updatedArtifact } : updatedArtifact);
+      setArtifacts(prev => prev.map(a => a.id === artifactId ? { ...a, ...updatedArtifact } : a));
+      showToast("Formatting complete!", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Formatting failed. Ensure Ollama is running.", "error");
+    } finally {
+      setIsFormatting(false);
+    }
+  };
+
+  const handleGenerateSummary = async (artifactId: string) => {
+    setIsGeneratingSummary(true);
+    showToast("Generating AI Summary...", "info");
+    try {
+      const res = await fetchWithAuth(`http://localhost:3001/capture/${artifactId}/summary`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Summary generation failed');
+      const updatedArtifact = await res.json();
+      
+      setSelectedArtifact(prev => prev ? { ...prev, ...updatedArtifact } : updatedArtifact);
+      setArtifacts(prev => prev.map(a => a.id === artifactId ? { ...a, ...updatedArtifact } : a));
+      showToast("Summary generation complete!", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Summary generation failed. Ensure Ollama is running.", "error");
+    } finally {
+      setIsGeneratingSummary(false);
     }
   };
 
@@ -1574,7 +1633,7 @@ function App() {
                                 const response = await fetch(`http://localhost:3001/visuals/diagram`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                  body: JSON.stringify({ text: selectedArtifact.content || selectedArtifact.summary || '' })
+                                  body: JSON.stringify({ text: selectedArtifact.content || (selectedArtifact.summary?.text || selectedArtifact.summary) || '' })
                                 });
                                 const data = await response.json();
                                 setArtifactDiagram(data.diagram);
@@ -1597,23 +1656,46 @@ function App() {
                           </div>
                         )}
 
-                        {selectedArtifact.summary && (
+                        {selectedArtifact.summary ? (
                           <div className="bg-synora-accent/10 border border-synora-accent/20 p-6 rounded-2xl shrink-0">
-                            <h3 className="text-sm font-bold text-synora-accent uppercase mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4"/> AI Summary</h3>
-                            <p className="text-lg leading-relaxed text-white/90">{selectedArtifact.summary}</p>
+                            <h3 className="text-sm font-bold text-synora-accent uppercase mb-3 flex items-center justify-between">
+                              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4"/> AI Summary</span>
+                            </h3>
+                            <p className="text-lg leading-relaxed text-white/90">{typeof selectedArtifact.summary === 'string' ? selectedArtifact.summary : selectedArtifact.summary?.text}</p>
+                          </div>
+                        ) : (
+                          <div className="bg-synora-surface/50 border border-synora-border border-dashed p-6 rounded-2xl shrink-0 flex items-center justify-between">
+                            <h3 className="text-sm font-bold text-synora-text-secondary uppercase flex items-center gap-2"><Sparkles className="w-4 h-4"/> AI Summary</h3>
+                            <button
+                              onClick={() => handleGenerateSummary(selectedArtifact.id)}
+                              disabled={isGeneratingSummary}
+                              className="px-4 py-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                              {isGeneratingSummary ? <><Loader2 className="w-4 h-4 animate-spin"/> Generating...</> : <><Sparkles className="w-4 h-4"/> Generate Summary</>}
+                            </button>
                           </div>
                         )}
                         <div className="shrink-0">
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-bold text-synora-text-secondary uppercase flex items-center gap-2"><FileText className="w-4 h-4"/> Full Document Content</h3>
-                            <button 
-                              onClick={() => handleTranslate(selectedArtifact.id)}
-                              disabled={isTranslating}
-                              className="text-xs px-3 py-1 bg-synora-accent/10 hover:bg-synora-accent/20 text-synora-accent border border-synora-accent/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                              {isTranslating ? <div className="w-3 h-3 rounded-full border-2 border-synora-accent border-t-transparent animate-spin" /> : <Globe className="w-3 h-3" />}
-                              Translate to English
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleFormat(selectedArtifact.id)}
+                                disabled={isFormatting}
+                                className="text-xs px-3 py-1 bg-synora-surface hover:bg-synora-surface-hover text-white border border-synora-border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              >
+                                {isFormatting ? <div className="w-3 h-3 rounded-full border-2 border-synora-text-secondary border-t-transparent animate-spin" /> : <Edit3 className="w-3 h-3" />}
+                                Format Document
+                              </button>
+                              <button 
+                                onClick={() => handleTranslate(selectedArtifact.id)}
+                                disabled={isTranslating}
+                                className="text-xs px-3 py-1 bg-synora-accent/10 hover:bg-synora-accent/20 text-synora-accent border border-synora-accent/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              >
+                                {isTranslating ? <div className="w-3 h-3 rounded-full border-2 border-synora-accent border-t-transparent animate-spin" /> : <Globe className="w-3 h-3" />}
+                                Translate to English
+                              </button>
+                            </div>
                           </div>
                           <div className="bg-synora-surface border border-synora-border p-6 rounded-2xl font-serif text-lg leading-loose text-white/80 markdown-prose prose-invert prose-p:text-white/80 prose-headings:text-white prose-a:text-synora-accent prose-strong:text-white prose-ul:text-white/80 max-w-none">
                             {selectedArtifact.content ? (

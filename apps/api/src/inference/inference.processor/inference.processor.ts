@@ -6,6 +6,9 @@ import { LlmService } from '../../common/llm.service';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as cheerio from 'cheerio';
+import TurndownService from 'turndown';
+import { Readability } from '@mozilla/readability';
+import { JSDOM } from 'jsdom';
 import * as fs from 'fs';
 import * as Tesseract from 'tesseract.js';
 
@@ -71,14 +74,30 @@ export class InferenceProcessor extends WorkerHost {
           const response = await fetch(artifact.sourceUrl);
           const html = await response.text();
 
-          const $ = cheerio.load(html);
-          $('script, style, nav, footer, iframe').remove();
-          contentToProcess = $('body').text().replace(/\s+/g, ' ').trim();
+          // Extract clean article HTML using Readability
+          const dom = new JSDOM(html, { url: artifact.sourceUrl });
+          const reader = new Readability(dom.window.document);
+          const article = reader.parse();
+          
+          let cleanHtml = article?.content || '';
+          
+          // Fallback to cheerio if Readability fails
+          if (!cleanHtml) {
+            const $ = cheerio.load(html);
+            $('script, style, nav, footer, iframe, noscript, header, aside').remove();
+            cleanHtml = $('body').html() || '';
+          }
+
+          const turndownService = new TurndownService({
+            headingStyle: 'atx',
+            codeBlockStyle: 'fenced'
+          });
+          contentToProcess = turndownService.turndown(cleanHtml);
         }
 
         await this.prisma.artifact.update({
           where: { id: artifactId },
-          data: { content: contentToProcess.substring(0, 5000) },
+          data: { content: contentToProcess },
         });
       } else if (artifact.type === 'PDF' && artifact.content) {
         this.logger.log(`Parsing PDF file: ${artifact.content}`);
@@ -89,7 +108,7 @@ export class InferenceProcessor extends WorkerHost {
 
         await this.prisma.artifact.update({
           where: { id: artifactId },
-          data: { content: contentToProcess.substring(0, 5000) },
+          data: { content: contentToProcess },
         });
       } else if (artifact.type === 'IMAGE' && artifact.content) {
         this.logger.log(`Running llama3.2-vision on Image file: ${artifact.content}`);
@@ -117,7 +136,7 @@ export class InferenceProcessor extends WorkerHost {
 
         await this.prisma.artifact.update({
           where: { id: artifactId },
-          data: { content: contentToProcess.substring(0, 5000) },
+          data: { content: contentToProcess },
         });
       }
 
@@ -141,7 +160,7 @@ export class InferenceProcessor extends WorkerHost {
         - If unsure, leave it out. Empty array is better than wrong entities.
 
         TEXT TO ANALYZE:
-        "${contentToProcess.substring(0, 4000)}"
+        "${contentToProcess.substring(0, 12000)}"
         
         Respond ONLY with a valid JSON object. No markdown, no code blocks, just raw JSON:
         {

@@ -9,7 +9,7 @@ import { WebSearchService } from '../chat/web-search.service';
   imports: [
     PrismaModule,
     BullModule.registerQueue({
-      name: 'capture-queue',
+      name: 'capture-processing',
     }),
   ],
   controllers: [DiscoveryController],
