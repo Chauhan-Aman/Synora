@@ -42,8 +42,9 @@ export class LlmService {
    * Generates a single text response from the LLM without streaming.
    * Suitable for quick extraction, routing, and evaluation tasks.
    */
-  async generateText(req: OllamaRequest, timeoutMs = 120_000): Promise<string> {
+  async generateText(req: OllamaRequest, timeoutMs = 300_000): Promise<string> {
     const targetModel = ModelRouter.getBestModel(req.modelType, req.modelParam);
+    this.logger.log(`[generateText] Using model: ${targetModel} | task: ${req.modelType}`);
 
     const body: any = {
       model: targetModel,
@@ -60,7 +61,11 @@ export class LlmService {
       signal: AbortSignal.timeout(timeoutMs),
     });
 
-    if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => res.statusText);
+      this.logger.error(`[generateText] Ollama error ${res.status}: ${errBody}`);
+      throw new Error(`Ollama error (${res.status}): ${errBody}`);
+    }
 
     const data = await res.json();
     return data.response ?? '';
@@ -77,37 +82,59 @@ export class LlmService {
     timeoutMs = 180_000,
   ): Promise<void> {
     const targetModel = ModelRouter.getBestModel(req.modelType, req.modelParam);
+    this.logger.log(`[streamToResponse] Using model: ${targetModel}`);
 
-    const generateResponse = await fetch(LlmService.OLLAMA_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: targetModel, prompt: req.prompt, stream: true }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    let generateResponse: globalThis.Response;
+    try {
+      generateResponse = await fetch(LlmService.OLLAMA_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: targetModel, prompt: req.prompt, stream: true }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err: any) {
+      this.logger.error(`[streamToResponse] Fetch failed: ${err.message}`);
+      res.write(`data: ${JSON.stringify({ type: 'error', text: 'Model unreachable. Please try again.' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      return;
+    }
 
     if (!generateResponse.ok) {
-      throw new Error(`Failed to reach Ollama: ${generateResponse.status}`);
+      const body = await generateResponse.text().catch(() => generateResponse.statusText);
+      this.logger.error(`[streamToResponse] Ollama error ${generateResponse.status}: ${body}`);
+      res.write(`data: ${JSON.stringify({ type: 'error', text: `Ollama error: ${body}` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      return;
     }
 
     if (generateResponse.body) {
       const reader = generateResponse.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       try {
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+          let result: ReadableStreamReadResult<Uint8Array>;
+          try {
+            result = await reader.read();
+          } catch (streamErr: any) {
+            // Ollama closed the stream unexpectedly (EOF) — this is non-fatal
+            this.logger.warn(`[streamToResponse] Stream ended unexpectedly: ${streamErr.message}`);
+            break;
+          }
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter((l) => l.trim() !== '');
+          if (result.done) break;
+
+          buffer += decoder.decode(result.value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? ''; // keep incomplete last line in buffer
 
           for (const line of lines) {
+            if (!line.trim()) continue;
             try {
               const data = JSON.parse(line);
               if (data.response) {
-                res.write(
-                  `data: ${JSON.stringify({ type: 'text', text: data.response })}\n\n`,
-                );
+                res.write(`data: ${JSON.stringify({ type: 'text', text: data.response })}\n\n`);
               }
             } catch {
               // Ignore malformed JSON chunks from the stream
@@ -116,6 +143,8 @@ export class LlmService {
         }
       } finally {
         reader.releaseLock();
+        // Always send the done signal so the frontend unblocks
+        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       }
     }
   }

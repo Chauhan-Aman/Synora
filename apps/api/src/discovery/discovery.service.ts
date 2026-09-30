@@ -39,6 +39,34 @@ export class DiscoveryService {
     return recs;
   }
 
+  async generateMore(userId: string) {
+    this.logger.log(`User ${userId} requested more recommendations`);
+    // Dismiss old unread ones to generate fresh feed
+    await this.prisma.recommendation.updateMany({
+      where: { userId, status: 'UNREAD' },
+      data: { status: 'DISMISSED' },
+    });
+    return this.generateDailyFeed(userId);
+  }
+
+  async generateCustom(userId: string, topic: string) {
+    this.logger.log(`User ${userId} requested custom topic: ${topic}`);
+    const recommendation = await this.prisma.recommendation.create({
+      data: {
+        userId,
+        title: topic,
+        type: 'CONCEPT',
+        description: `Custom exploration of ${topic}`,
+        reasoning: 'Requested by you',
+        status: 'UNREAD',
+      }
+    });
+    
+    // Auto-explore it so it immediately starts generating the article
+    await this.exploreRecommendation(userId, recommendation.id);
+    return recommendation;
+  }
+
   private async generateDailyFeed(userId: string) {
     // 1. Get user context
     const topTopics = await this.prisma.topic.findMany({

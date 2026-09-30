@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, UseGuards, Body } from '@nestjs/common';
 import { DiscoveryService } from './discovery.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -11,6 +11,16 @@ export class DiscoveryController {
   @Get('feed')
   async getFeed(@CurrentUser() user: any) {
     return this.discoveryService.getFeed(user.userId);
+  }
+
+  @Post('generate-more')
+  async generateMore(@CurrentUser() user: any) {
+    return this.discoveryService.generateMore(user.userId);
+  }
+
+  @Post('custom')
+  async generateCustom(@CurrentUser() user: any, @Body('topic') topic: string) {
+    return this.discoveryService.generateCustom(user.userId, topic);
   }
 
   @Post(':id/explore')

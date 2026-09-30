@@ -96,7 +96,7 @@ export class CaptureController {
     5. Respond ONLY with the finalized markdown article.
     
     RAW TEXT:
-    ${artifact.content}`;
+    ${(artifact.content ?? '').substring(0, 12000)}`;
 
     const formattedText = await this.llmService.generateText({
       modelType: 'DRAFTING',

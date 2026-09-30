@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { BrainCircuit, CheckCircle, Compass, FileText, GraduationCap, Key, Layers, Link, Loader2, LogOut, MessageSquare, Plus, Rss, Settings, Sparkles, X, Copy, Trash2, Edit3, Type, Box, Mic, MicOff, Search, Network, List as ListIcon, Workflow, Hash, Volume2, VolumeX, Send, Image as ImageIcon, Briefcase, MessageCircle, Mail, CheckSquare, Square, Download, Printer, Globe } from 'lucide-react';
+import { BrainCircuit, CheckCircle, Compass, FileText, GraduationCap, Key, Layers, Link, Loader2, LogOut, MessageSquare, Plus, Rss, Settings, Sparkles, X, Copy, Trash2, Edit3, Type, Box, Mic, MicOff, Search, Network, List as ListIcon, Workflow, Hash, Volume2, VolumeX, Send, Image as ImageIcon, Briefcase, MessageCircle, Mail, CheckSquare, Square, Download, Printer, Globe, Wand2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import ForceGraph3D from 'react-force-graph-3d';
-import SpriteText from 'three-spritetext';
+import BrainTreeMap from './components/BrainTreeMap';
 import { RadialMenu, type RadialMenuItem } from './components/RadialMenu';
 import { RichTextEditor } from './components/RichTextEditor';
 import { ProceduralCover } from './components/ProceduralCover';
@@ -250,9 +249,11 @@ function App() {
 
   // Discover State
   const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [nestedRecommendations, setNestedRecommendations] = useState<Record<string, any[]>>({});
   const [tasteProfile, setTasteProfile] = useState<string | null>(null);
   const [isLoadingDiscover, setIsLoadingDiscover] = useState(false);
+  const [isGeneratingCustom, setIsGeneratingCustom] = useState(false);
+  const [customTopic, setCustomTopic] = useState('');
+  const [nestedRecommendations, setNestedRecommendations] = useState<Record<string, any[]>>({});
   const [exploringId, setExploringId] = useState<string | null>(null);
   const [divingId, setDivingId] = useState<string | null>(null);
 
@@ -262,6 +263,7 @@ function App() {
   const [isGeneratingCover, setIsGeneratingCover] = useState(false);
   const [draftContext, setDraftContext] = useState<any[]>([]);
   const [isGeneratingParagraph, setIsGeneratingParagraph] = useState(false);
+  const [isProofreading, setIsProofreading] = useState(false);
   const [suggestedParagraph, setSuggestedParagraph] = useState<string>("");
   const [revisionPrompt, setRevisionPrompt] = useState<string>("");
   const [isRevising, setIsRevising] = useState(false);
@@ -314,12 +316,6 @@ function App() {
     return () => clearTimeout(draftTimeoutRef.current);
   }, [draftText, activeTab, token]);
 
-  useEffect(() => {
-    if (fgRef.current) {
-      fgRef.current.d3Force('charge').strength(-200);
-      fgRef.current.d3Force('link').distance(120);
-    }
-  }, [graphData, knowledgeView, activeTab]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -528,6 +524,44 @@ function App() {
       console.error(err);
     } finally {
       setIsLoadingDiscover(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    setIsLoadingDiscover(true);
+    try {
+      const res = await fetchWithAuth('http://localhost:3001/discovery/generate-more', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setRecommendations(prev => [...prev, ...data]);
+      }
+    } finally {
+      setIsLoadingDiscover(false);
+    }
+  };
+
+  const handleCustomTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customTopic.trim() || isGeneratingCustom) return;
+    setIsGeneratingCustom(true);
+    showToast("Generating custom exploration...", "info");
+    try {
+      const res = await fetchWithAuth('http://localhost:3001/discovery/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: customTopic })
+      });
+      if (res.ok) {
+        showToast("Custom concept sent for processing!", "success");
+        setCustomTopic('');
+      } else {
+        throw new Error('Failed to generate custom topic');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to generate custom topic", "error");
+    } finally {
+      setIsGeneratingCustom(false);
     }
   };
 
@@ -807,12 +841,32 @@ function App() {
       });
       const data = await res.json();
       if (data.nextParagraph) {
-        setSuggestedParagraph(data.suggestedDraft);
+        setSuggestedParagraph(data.nextParagraph);
       }
     } catch (error) {
       console.error("Error generating paragraph:", error);
     } finally {
       setIsGeneratingParagraph(false);
+    }
+  };
+
+  const handleProofread = async () => {
+    if (!draftText.trim() || isProofreading) return;
+    setIsProofreading(true);
+    try {
+      const res = await fetchWithAuth('http://localhost:3001/create/proofread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft: draftText, model: modelConfig })
+      });
+      const data = await res.json();
+      if (data.proofreadText) {
+        setDraftText(data.proofreadText);
+      }
+    } catch (error) {
+      console.error("Error proofreading document:", error);
+    } finally {
+      setIsProofreading(false);
     }
   };
 
@@ -841,14 +895,23 @@ function App() {
         return `<p>${suggestedParagraph}</p>`;
       }
       
+      let joiner = ' ';
+      if (/^[.,;!?]/.test(suggestedParagraph)) {
+        joiner = '';
+      }
+      
       // If the draft ends with a paragraph tag, inject the new text inside it
       // so that it flows continuously instead of starting a new block.
       const trimmed = prev.trim();
       if (trimmed.endsWith('</p>')) {
-        return trimmed.slice(0, -4) + ' ' + suggestedParagraph + '</p>';
+        let base = trimmed.slice(0, -4);
+        if (joiner === '') base = base.trimEnd();
+        return base + joiner + suggestedParagraph + '</p>';
       }
       
-      return prev + ' ' + suggestedParagraph;
+      let base = prev;
+      if (joiner === '') base = base.trimEnd();
+      return base + joiner + suggestedParagraph;
     });
     setSuggestedParagraph("");
     setRevisionPrompt("");
@@ -1369,48 +1432,12 @@ function App() {
                   ) : (
                     <div className="w-full h-full bg-synora-bg/50 border border-synora-border rounded-xl absolute inset-0">
                       {graphDimensions.width > 0 && (
-                        <ForceGraph3D
-                          ref={fgRef}
+                        <BrainTreeMap
                           graphData={graphData}
+                          onNodeClick={(node: any) => setSelectedNode(node)}
+                          selectedNodeId={selectedNode?.id}
                           width={graphDimensions.width}
                           height={graphDimensions.height}
-                          backgroundColor="rgba(0,0,0,0)"
-                          nodeRelSize={5}
-                          nodeLabel={(node: any) => node.name}
-                          nodeColor={(node: any) => {
-                            if (selectedNode && selectedNode.id === node.id) return '#f59e0b';
-                            if (node.group === 'artifact') return '#10b981';
-                            if (node.group === 'topic') return '#8b5cf6';
-                            return '#3b82f6';
-                          }}
-                          nodeOpacity={0.9}
-                          nodeResolution={16}
-                          nodeThreeObjectExtend={true}
-                          nodeThreeObject={(node: any) => {
-                            const sprite = new SpriteText(node.name);
-                            const color = node.group === 'artifact' ? '#10b981' : node.group === 'topic' ? '#c4b5fd' : '#93c5fd';
-                            sprite.color = '#ffffff';
-                            sprite.backgroundColor = node.group === 'artifact' ? 'rgba(16,185,129,0.15)' : node.group === 'topic' ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)';
-                            sprite.borderColor = color;
-                            sprite.borderWidth = 0.5;
-                            sprite.borderRadius = 4;
-                            sprite.padding = 2;
-                            sprite.textHeight = 3.5;
-                            sprite.fontFace = 'Inter, sans-serif';
-                            sprite.fontWeight = '600';
-                            sprite.position.y = 8;
-                            return sprite;
-                          }}
-                          linkColor={() => 'rgba(148, 163, 184, 0.2)'}
-                          linkWidth={0.8}
-                          linkOpacity={0.5}
-                          linkDirectionalParticles={2}
-                          linkDirectionalParticleWidth={(link: any) => selectedNode && (link.source?.id === selectedNode.id || link.target?.id === selectedNode.id) ? 2 : 0}
-                          linkDirectionalParticleColor={() => '#a78bfa'}
-                          linkDirectionalParticleSpeed={0.004}
-                          d3VelocityDecay={0.3}
-                          cooldownTicks={150}
-                          onNodeClick={(node: any) => setSelectedNode(node)}
                         />
                       )}
                       
@@ -1445,8 +1472,6 @@ function App() {
                                 if (filtered[graphSearchSelectedIndex]) {
                                   const node = filtered[graphSearchSelectedIndex];
                                   setSelectedNode(node);
-                                  fgRef.current?.centerAt(node.x, node.y, 1000);
-                                  fgRef.current?.zoom(4, 1000);
                                   setGraphSearchQuery("");
                                 }
                               }
@@ -1463,8 +1488,6 @@ function App() {
                                   key={node.id}
                                   onClick={() => {
                                     setSelectedNode(node);
-                                    fgRef.current?.centerAt(node.x, node.y, 1000);
-                                    fgRef.current?.zoom(4, 1000);
                                     setGraphSearchQuery("");
                                   }}
                                   className={`w-full text-left px-3 py-2 text-sm border-b border-synora-border/50 last:border-0 truncate transition-colors ${graphSearchSelectedIndex === index ? 'bg-synora-accent/20' : 'hover:bg-synora-accent/10'}`}
@@ -2077,6 +2100,24 @@ function App() {
                 </div>
               )}
 
+              <form onSubmit={handleCustomTopic} className="mb-8 shrink-0 flex items-center gap-3">
+                <input
+                  type="text"
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  placeholder="Request a specific topic to explore..."
+                  className="flex-1 bg-synora-surface/80 border border-synora-border/50 rounded-xl px-4 py-3 text-white placeholder-synora-text-secondary/50 focus:border-synora-accent outline-none shadow-inner"
+                />
+                <button
+                  type="submit"
+                  disabled={!customTopic.trim() || isGeneratingCustom}
+                  className="glass-button px-6 py-3 whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isGeneratingCustom ? <Sparkles className="w-4 h-4 animate-spin text-synora-accent" /> : <Search className="w-4 h-4 text-synora-accent" />}
+                  Explore Custom
+                </button>
+              </form>
+
               {isLoadingDiscover && recommendations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center flex-1 text-synora-text-secondary glass-panel rounded-2xl p-12">
                   <Sparkles className="w-12 h-12 animate-pulse text-synora-accent mb-4" />
@@ -2210,6 +2251,19 @@ function App() {
                   ))}
                 </div>
               )}
+
+              {recommendations.length > 0 && (
+                <div className="flex justify-center pb-12 shrink-0">
+                  <button 
+                    onClick={handleLoadMore}
+                    disabled={isLoadingDiscover}
+                    className="glass-button px-8 py-3 flex items-center gap-2 group hover:shadow-[0_0_20px_rgba(167,139,250,0.3)] transition-all"
+                  >
+                    <Sparkles className={`w-5 h-5 text-synora-accent group-hover:scale-110 transition-transform ${isLoadingDiscover ? 'animate-spin' : ''}`} />
+                    Generate More Ideas
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -2219,16 +2273,16 @@ function App() {
               
               {/* Left Column: Editor */}
               <div className="flex-1 flex flex-col glass-panel p-6 rounded-2xl h-full border-synora-border shadow-2xl relative">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
+                <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-4">
+                  <h2 className="text-xl font-bold flex items-center gap-2 shrink-0">
                     <FileText className="w-5 h-5 text-synora-accent" />
                     Editor
                   </h2>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full xl:w-auto pb-1 xl:pb-0">
                     <button
                       onClick={handleGenerateCover}
                       disabled={isGeneratingCover || draftText.trim().length < 20}
-                      className="flex items-center gap-2 px-4 py-2 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-sm font-medium"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0"
                     >
                       {isGeneratingCover ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> Generating Cover...</>
@@ -2239,12 +2293,23 @@ function App() {
                     <button
                       onClick={handleGenerateParagraph}
                       disabled={isGeneratingParagraph || draftText.trim().length < 20}
-                      className="flex items-center gap-2 px-4 py-2 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-all disabled:opacity-50 text-sm font-medium"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0"
                     >
                       {isGeneratingParagraph ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> Co-Writing...</>
                       ) : (
                         <><Sparkles className="w-4 h-4" /> Draft Next Paragraph</>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleProofread}
+                      disabled={isProofreading || draftText.trim().length < 10}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0"
+                    >
+                      {isProofreading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Polishing...</>
+                      ) : (
+                        <><Wand2 className="w-4 h-4 text-emerald-400" /> Proofread</>
                       )}
                     </button>
                   </div>
@@ -2272,7 +2337,7 @@ function App() {
                 <RichTextEditor 
                   content={draftText} 
                   onChange={setDraftText} 
-                  placeholder="Start writing your essay, blog post, or ideas here...\n\nAs you type, Synora will automatically surface relevant notes and articles from your knowledge graph in the sidebar to the right." 
+                  placeholder="Start writing your draft here..." 
                 />
 
                 {/* SUGGESTED DRAFT PANEL */}
@@ -2337,7 +2402,7 @@ function App() {
                           <Box className="w-4 h-4 text-synora-accent shrink-0 mt-0.5" />
                           <h4 className="font-semibold text-sm line-clamp-2 leading-tight">{artifact.title || 'Untitled Knowledge'}</h4>
                         </div>
-                        <p className="text-xs text-synora-text-secondary line-clamp-4 leading-relaxed mb-3">
+                        <p className="text-xs text-synora-text-secondary line-clamp-2 leading-relaxed mb-3">
                           {artifact.summary || artifact.content || 'No summary available.'}
                         </p>
                         <a 
@@ -2461,17 +2526,17 @@ function App() {
 
       {/* PUBLISH TAB */}
       {activeTab === 'PUBLISH' && (
-        <div className="w-full flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
+        <div className="w-full h-full flex flex-col p-4 md:p-8">
+          <div className="max-w-6xl w-full mx-auto flex flex-col h-full min-h-0">
+            <div className="mb-8 shrink-0">
               <h2 className="text-3xl font-bold text-white mb-2">Content Pipeline</h2>
               <p className="text-synora-text-secondary">Transform your knowledge graph into publishable content using local AI.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
 
               {/* Panel 1: Configure */}
-              <div className="lg:col-span-1 space-y-5">
+              <div className="lg:col-span-1 space-y-5 overflow-y-auto custom-scrollbar pr-2 pb-4">
                 <div className="glass-panel p-5">
                   <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2"><Layers className="w-4 h-4 text-synora-accent" /> Format</h3>
                   <div className="space-y-2">
@@ -2567,8 +2632,8 @@ function App() {
               </div>
 
               {/* Panel 2: Preview */}
-              <div className="lg:col-span-2">
-                <div className="glass-panel p-5 h-full min-h-[500px] flex flex-col">
+              <div className="lg:col-span-2 flex flex-col min-h-0">
+                <div className="glass-panel p-5 h-full flex flex-col min-h-0">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-semibold text-white flex items-center gap-2">
                       {publishFormat === 'blog' && <FileText className="w-4 h-4 text-synora-accent" />}

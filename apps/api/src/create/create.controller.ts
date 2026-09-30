@@ -40,4 +40,12 @@ export class CreateController {
     const nextParagraph = await this.createService.rewriteParagraph(draft, suggestedParagraph, instructions, context, model);
     return { nextParagraph };
   }
+  @Post('proofread')
+  async proofread(
+    @Body('draft') draft: string,
+    @Body('model') model?: string
+  ) {
+    const proofreadText = await this.createService.proofreadDocument(draft, model);
+    return { proofreadText };
+  }
 }

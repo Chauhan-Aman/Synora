@@ -94,9 +94,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
       </div>
 
       {/* Editor Content Area */}
-      <div className="flex-1 overflow-y-auto cursor-text" onClick={() => editor.commands.focus()}>
+      <div className="flex-1 overflow-y-auto cursor-text relative" onClick={() => editor.commands.focus()}>
         {content === '' && editor.isEmpty && placeholder && (
-           <div className="absolute top-16 left-4 text-synora-text-secondary/50 pointer-events-none p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+           <div className="absolute top-0 left-0 text-synora-text-secondary/50 pointer-events-none p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
              {placeholder}
            </div>
         )}
