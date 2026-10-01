@@ -56,34 +56,27 @@ export class KnowledgeGraphTool extends AgentTool {
       const vector = embedData.embedding as number[];
       const vectorString = `[${vector.join(',')}]`;
 
-      // 2. Hybrid Reciprocal Rank Fusion search
+      // 2. Hybrid: Get best chunk per artifact, filtering out citation-heavy chunks
       const chunks = await this.prisma.$queryRaw<any[]>`
         WITH vector_results AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> ${vectorString}::vector) as vector_rank
-          FROM "Chunk"
-          WHERE "userId" = ${this.userId} AND embedding IS NOT NULL
-          ORDER BY vector_rank
-          LIMIT 20
-        ),
-        keyword_results AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd("searchVector", plainto_tsquery('english', ${query})) DESC) as keyword_rank
-          FROM "Chunk"
-          WHERE "userId" = ${this.userId} AND "searchVector" @@ plainto_tsquery('english', ${query})
-          ORDER BY keyword_rank
-          LIMIT 20
+          SELECT DISTINCT ON (a.id)
+            c.id,
+            c.text as content,
+            a."sourceUrl" as "sourceUrl",
+            a.title as title,
+            c.embedding <=> ${vectorString}::vector as distance
+          FROM "Chunk" c
+          JOIN "Artifact" a ON c."artifactId" = a.id
+          WHERE "userId" = ${this.userId} 
+            AND embedding IS NOT NULL
+            AND LENGTH(c.text) > 200
+            AND c.text NOT LIKE '%identifier%'
+            AND c.text NOT LIKE '%PMID%'
+            AND c.text NOT LIKE '%). %'
+          ORDER BY a.id, c.embedding <=> ${vectorString}::vector ASC
         )
-        SELECT 
-          c.id,
-          c.text as content,
-          a."sourceUrl" as "sourceUrl",
-          a.title as title,
-          COALESCE(1.0 / (60 + vr.vector_rank), 0.0) + COALESCE(1.0 / (60 + kr.keyword_rank), 0.0) as rrf_score
-        FROM "Chunk" c
-        JOIN "Artifact" a ON c."artifactId" = a.id
-        LEFT JOIN vector_results vr ON c.id = vr.id
-        LEFT JOIN keyword_results kr ON c.id = kr.id
-        WHERE vr.id IS NOT NULL OR kr.id IS NOT NULL
-        ORDER BY rrf_score DESC
+        SELECT * FROM vector_results
+        ORDER BY distance ASC
         LIMIT 5;
       `;
 
@@ -91,14 +84,58 @@ export class KnowledgeGraphTool extends AgentTool {
         return `No relevant content found in your Knowledge Graph for: "${query}"`;
       }
 
-      const formatted = chunks
+      // Clean citation junk from each chunk before passing to LLM
+      const cleanChunk = (text: string): string => {
+        return text
+          .replace(/^\d{1,3}\.\s+[A-Z][a-z]+,\s+.+$/gm, '') // numbered bibliography entries
+          .replace(/[A-Z]{2,}\s*\(identifier\)[")]*\s*[\d\.\-\w]*/g, '') // SSN (identifier) etc
+          .replace(/(?:PMID|S2CID|arXiv|Bibcode|doi|PMC|ISSN|hdl|SSN|ISBN|OCLC)\s*(?:["(][^)"]*[)"])?[\s:]*[\d\.\/\-\w]*/gi, '')
+          .replace(/!\[.*?\]\([^)]*\)?/g, '')
+          .replace(/\[(.*?)\]\([^)]*\)?/g, '$1')
+          .replace(/\[\d+\]/g, '')
+          .replace(/https?:\/\/[^\s]+/g, '')
+          .replace(/[↑→←]/g, '')
+          .replace(/<[^>]*>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+
+      // Ensure chunks are in English
+      const processedChunks = await Promise.all(chunks.map(async (c: any) => {
+        const cleaned = cleanChunk(c.content);
+        const hasNonEnglishScript = /[\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF\u0400-\u04FF\u0E00-\u0E7F\uAC00-\uD7AF\u3040-\u309F\u30A0-\u30FF]/.test(cleaned);
+        
+        if (hasNonEnglishScript) {
+          try {
+            // Quick embedded fetch to local ollama for translation to keep tool self-contained
+            const tRes = await fetch('http://localhost:11434/api/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'qwen2.5:14b', // Since LlmService isn't easily accessible here without constructor injection
+                prompt: `Translate the following text to English. Reply ONLY with the English translation, no other text or explanation. Text:\n${cleaned}`,
+                stream: false
+              })
+            });
+            if (tRes.ok) {
+              const tData = await tRes.json();
+              return { ...c, content: tData.response?.trim() || cleaned };
+            }
+          } catch (e) {
+            // Ignore translation errors
+          }
+        }
+        return { ...c, content: cleaned };
+      }));
+
+      const formatted = processedChunks
         .map(
           (c: any, i: number) =>
             `[Knowledge Chunk ${i + 1}] From: ${c.title || c.sourceUrl || 'Local Note'}\n${c.content}`,
         )
         .join('\n\n---\n\n');
 
-      return `Found ${chunks.length} relevant entries in your Knowledge Graph:\n\n${formatted}`;
+      return `Found ${processedChunks.length} relevant entries in your Knowledge Graph:\n\n${formatted}`;
     } catch (e: any) {
       return `Knowledge graph search failed: ${e.message}`;
     }

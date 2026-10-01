@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
 import { CaptureService } from './capture.service';
 import { LlmService } from '../common/llm.service';
 import { CreateCaptureDto } from './dto/create-capture.dto';
@@ -20,6 +20,12 @@ export class CaptureController {
   @HttpCode(HttpStatus.ACCEPTED)
   create(@Body() createCaptureDto: CreateCaptureDto, @CurrentUser() user: any) {
     return this.captureService.create(createCaptureDto, user.userId);
+  }
+
+  @Put(':id')
+  @HttpCode(HttpStatus.OK)
+  update(@Param('id') id: string, @Body() updateCaptureDto: Partial<CreateCaptureDto>, @CurrentUser() user: any) {
+    return this.captureService.update(id, updateCaptureDto, user.userId);
   }
 
   @Post('upload')

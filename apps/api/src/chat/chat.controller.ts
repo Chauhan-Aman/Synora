@@ -8,12 +8,16 @@ import {
   HttpStatus,
   Logger,
   Res,
+  Delete,
+  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { LlmService } from '../common/llm.service';
 
 import { PrismaService } from '../prisma/prisma.service';
+
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 
 /**
  * ChatController — the primary entry point for the Synora AI chat interface.
@@ -28,7 +32,7 @@ import { PrismaService } from '../prisma/prisma.service';
  *
  * This follows the "Thin Controller, Fat Service" architectural principle.
  */
-//@UseGuards(JwtAuthGuard)
+@UseGuards(OptionalJwtAuthGuard)
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
@@ -121,7 +125,9 @@ export class ChatController {
               .map((m: any) => ({ role: m.role, content: m.content ?? '' }))
           : [];
 
-      const systemPrompt = `You are Synora, an intelligent personal assistant with access to a suite of powerful tools.
+      const systemPrompt = `CRITICAL RULE: You are Synora. You MUST think and output exclusively in ENGLISH. NEVER output any internal translation steps, and NEVER output Thai, Chinese, or any other language unless the user explicitly commands it.
+
+You are an intelligent personal assistant with access to a suite of powerful tools.
 
 You have access to the following tools and you should use them proactively when needed:
 - knowledge_graph_search: Search the user's private saved notes and bookmarks. ALWAYS try this first before searching the web.
@@ -136,7 +142,10 @@ Guidelines:
 3. For mathematical or computational tasks, use calculator or code_runner.
 4. Chain tools naturally — search first, scrape to get details, then synthesize the answer.
 5. Be concise, helpful, and transparent about your sources.
-6. If tools fail, answer from your general knowledge and note the limitation.${userPreferences}`;
+6. If tools fail, answer from your general knowledge and note the limitation.
+7. NEVER output intermediate translation blocks. Just give the final answer in English.
+
+${userPreferences}`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
@@ -252,6 +261,47 @@ Guidelines:
     }
 
     return session;
+  }
+
+  @Delete('sessions/:id')
+  async deleteSession(@Param('id') sessionId: string, @CurrentUser() user: any) {
+    if (!user?.userId) throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+
+    const session = await this.prisma.chatSession.findUnique({
+      where: { id: sessionId }
+    });
+
+    if (!session || session.userId !== user.userId) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
+    }
+
+    await this.prisma.chatSession.delete({
+      where: { id: sessionId }
+    });
+
+    return { success: true };
+  }
+
+  @Post('sessions/:id/rename')
+  async renameSession(
+    @Param('id') sessionId: string,
+    @Body('title') title: string,
+    @CurrentUser() user: any,
+  ) {
+    if (!user?.userId) throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    if (!title?.trim()) throw new HttpException('Title is required', HttpStatus.BAD_REQUEST);
+
+    const session = await this.prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (!session || session.userId !== user.userId) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
+    }
+
+    const updated = await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { title: title.trim() },
+    });
+
+    return updated;
   }
 
   /**

@@ -37,9 +37,10 @@ export class CreateService {
       const vector = embedData.embedding;
       const vectorString = `[${vector.join(',')}]`;
 
-      // Hybrid Search: Vector similarity combined with simple term matches if necessary, but we'll use pure vector for MVP
-      const artifacts = await this.prisma.$queryRaw<any[]>`
-        SELECT 
+      // Get the BEST (most similar) chunk per artifact using DISTINCT ON
+      // Also filter out very short chunks that are likely pure citation/reference text
+      const rawChunks = await this.prisma.$queryRaw<any[]>`
+        SELECT DISTINCT ON (a.id)
           a.id, 
           a.title, 
           a."sourceUrl", 
@@ -47,45 +48,79 @@ export class CreateService {
           1 - (c.embedding <=> ${vectorString}::vector) as similarity 
         FROM "Chunk" c
         JOIN "Artifact" a ON c."artifactId" = a.id
-        WHERE c."userId" = ${userId} AND c.embedding IS NOT NULL
-        ORDER BY c.embedding <=> ${vectorString}::vector ASC
+        WHERE c."userId" = ${userId} 
+          AND c.embedding IS NOT NULL
+          AND LENGTH(c.text) > 200
+          AND c.text NOT LIKE '%identifier%'
+          AND c.text NOT LIKE '%PMID%'
+          AND c.text NOT LIKE '%). %'
+        ORDER BY a.id, c.embedding <=> ${vectorString}::vector ASC
         LIMIT 5
       `;
 
-      // Translate Arabic (or non-English) snippets to English
-      const translatedArtifacts = await Promise.all(artifacts.map(async (a) => {
-        // Clean markdown gibberish (images, links, html tags)
-        let cleanedSummary = (a.summary || '')
-          .replace(/!\[.*?\]\([^)]*\)?/g, '') // Remove images
-          .replace(/\[(.*?)\]\([^)]*\)?/g, '$1') // Convert links, allowing internal escaped brackets
-          .replace(/\\\[/g, '[') // Unescape [
-          .replace(/\\\]/g, ']') // Unescape ]
-          .replace(/\[\d+\]/g, '') // Remove citation numbers like [61]
-          .replace(/https?:\/\/[^\s]+/g, '') // Remove remaining raw URLs
-          .replace(/(?:PMID|S2CID|arXiv|Bibcode|doi|PMC|ISSN|hdl)\s*(?:"[^"]*")?\)?\s*:?\s*[\d\.\-\w]*/gi, '') // Remove citation identifiers
-          .replace(/↑/g, '') // Remove Wikipedia up arrows
-          .replace(/<[^>]*>/g, '') // Remove HTML tags
-          .replace(/\s+/g, ' ')
-          .trim();
+      const cleaned = rawChunks.map((a) => {
+        let text = (a.summary || '');
 
-        // Quick heuristic: checking for Arabic characters block (\u0600-\u06FF)
-        if (/[\u0600-\u06FF]/.test(cleanedSummary)) {
+        // ── Strip Wikipedia-style citations and bibliography text ──
+        // Remove lines that look like numbered references: "87. Wang, Yuxuan; ..."
+        text = text.replace(/^\d{1,3}\.\s+[A-Z][a-z]+,\s+.+$/gm, '');
+        // Remove citation identifier blocks: SSN (identifier)") 0028-0836
+        text = text.replace(/[A-Z]{2,}\s*\(identifier\)[")]*\s*[\d\.\-\w]*/g, '');
+        // Remove known citation keys: PMID, S2CID, arXiv, doi, ISSN, hdl, PMC, Bibcode
+        text = text.replace(/(?:PMID|S2CID|arXiv|Bibcode|doi|PMC|ISSN|hdl|SSN|ISBN|OCLC)\s*(?:["(][^)"]*[)"])?[\s:]*[\d\.\/\-\w]*/gi, '');
+        // Remove markdown image tags
+        text = text.replace(/!\[.*?\]\([^)]*\)?/g, '');
+        // Convert markdown links to just their label text
+        text = text.replace(/\[(.*?)\]\([^)]*\)?/g, '$1');
+        // Remove footnote reference numbers: [61], [1], etc.
+        text = text.replace(/\[\d+\]/g, '');
+        // Remove raw URLs
+        text = text.replace(/https?:\/\/[^\s]+/g, '');
+        // Remove Wikipedia arrow / edit icons
+        text = text.replace(/[↑→←]/g, '');
+        // Remove residual HTML tags
+        text = text.replace(/<[^>]*>/g, '');
+        // Remove lines that are mostly punctuation/numbers (leftover citation lines)
+        text = text.split('\n').filter((line: string) => {
+          const stripped = line.replace(/[^a-zA-Z]/g, '');
+          return stripped.length > 10; // skip lines with fewer than 10 real letters
+        }).join(' ');
+        // Collapse whitespace
+        text = text.replace(/\s+/g, ' ').trim();
+
+        return { ...a, summary: text };
+      })
+      // Skip chunks where the cleaned text is still too short to be meaningful
+      .filter(a => a.summary.length > 40);
+
+      // Translate non-English snippets (Arabic, Hindi, Thai, CJK, Cyrillic, etc) to English
+      const translated = await Promise.all(cleaned.map(async (a) => {
+        // Quick heuristic to detect non-Latin scripts
+        const hasNonEnglishScript = /[\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF\u0400-\u04FF\u0E00-\u0E7F\uAC00-\uD7AF\u3040-\u309F\u30A0-\u30FF]/.test(a.summary);
+        
+        if (hasNonEnglishScript) {
           this.logger.log(`Translating non-English snippet for artifact ${a.id}`);
-          const translated = await this.llmService.generateText({
-            modelType: 'EXTRACTION',
-            prompt: `Translate the following text to English. Reply ONLY with the English translation, no other text or explanation. Text:\n${cleanedSummary}`
-          });
-          return { ...a, summary: translated?.trim() || cleanedSummary };
+          try {
+            const translatedText = await this.llmService.generateText({
+              modelType: 'EXTRACTION',
+              prompt: `Translate the following text to English. Reply ONLY with the English translation, no other text or explanation. Text:\n${a.summary}`
+            });
+            return { ...a, summary: translatedText?.trim() || a.summary };
+          } catch (e) {
+            this.logger.error(`Failed to translate snippet for ${a.id}`, e);
+            return a;
+          }
         }
-        return { ...a, summary: cleanedSummary };
+        return a;
       }));
 
-      return translatedArtifacts;
+      return translated;
     } catch (err) {
       this.logger.error("Failed to fetch context", err);
       return [];
     }
   }
+
 
   async generateParagraph(draftText: string, contextArtifacts: any[], model?: string): Promise<string> {
     try {

@@ -75,19 +75,19 @@ export class KnowledgeService {
     const addedNodes = new Set();
 
     for (const artifact of artifacts) {
-      let artifactName = 'Raw Text Snippet';
+      let artifactName = artifact.title;
       
-      if (artifact.summary && artifact.summary.text) {
-        artifactName = artifact.summary.text.length > 35 
-          ? artifact.summary.text.substring(0, 35) + '...' 
-          : artifact.summary.text;
-      } else if (artifact.sourceUrl) {
+      if (!artifactName && artifact.sourceUrl) {
         try {
           const url = new URL(artifact.sourceUrl);
           artifactName = url.hostname;
         } catch {
-          artifactName = artifact.sourceUrl.length > 30 ? artifact.sourceUrl.substring(0, 30) + '...' : artifact.sourceUrl;
+          artifactName = artifact.sourceUrl;
         }
+      }
+
+      if (!artifactName) {
+        artifactName = 'Untitled Artifact';
       }
 
       if (!addedNodes.has(artifact.id)) {

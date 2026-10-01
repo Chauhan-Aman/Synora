@@ -18,6 +18,7 @@ export class CaptureService {
     const artifact = await this.prisma.artifact.create({
       data: {
         type: createCaptureDto.type,
+        title: createCaptureDto.title,
         sourceUrl: createCaptureDto.sourceUrl,
         content: createCaptureDto.content,
         status: 'pending',
@@ -35,6 +36,36 @@ export class CaptureService {
 
     return {
       message: 'Capture received and queued for processing',
+      artifactId: artifact.id,
+    };
+  }
+
+  async update(id: string, updateDto: Partial<CreateCaptureDto>, userId: string) {
+    // 1. Update in DB and reset status to pending so it gets reprocessed
+    const artifact = await this.prisma.artifact.update({
+      where: { id, userId },
+      data: {
+        title: updateDto.title,
+        content: updateDto.content,
+        status: 'pending',
+      },
+    });
+
+    // 2. Clear old chunks since the content changed
+    await this.prisma.chunk.deleteMany({
+      where: { artifactId: id, userId }
+    });
+
+    // 3. Dispatch to Queue for async processing
+    await this.captureQueue.add('process-capture', {
+      artifactId: artifact.id,
+      model: updateDto.model
+    });
+
+    this.logger.log(`Updated capture and queued for re-processing: ${artifact.id}`);
+
+    return {
+      message: 'Capture updated and queued for processing',
       artifactId: artifact.id,
     };
   }

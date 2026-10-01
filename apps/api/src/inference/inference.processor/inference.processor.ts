@@ -164,7 +164,7 @@ export class InferenceProcessor extends WorkerHost {
         
         Respond ONLY with a valid JSON object. No markdown, no code blocks, just raw JSON:
         {
-          "title": "3-6 word descriptive title of the TOPIC, not the source",
+          "title": "3-6 word descriptive title of the TOPIC. NEVER USE '...', DO NOT truncate the summary. Invent a REAL short title.",
           "summary": "2-3 sentences summarizing the core technical/academic content only",
           "topics": ["Core Technical Topic 1", "Algorithm or Concept 2"],
           "entities": [

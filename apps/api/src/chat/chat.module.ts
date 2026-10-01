@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ChatController } from './chat.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 
 /**
  * ChatModule — provides the Synora AI chat endpoint.
@@ -10,8 +12,8 @@ import { PrismaModule } from '../prisma/prisma.module';
  * both of which are globally exported from CommonModule.
  */
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   controllers: [ChatController],
-  providers: [],
+  providers: [OptionalJwtAuthGuard],
 })
 export class ChatModule {}
