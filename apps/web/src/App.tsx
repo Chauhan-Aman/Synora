@@ -23,6 +23,10 @@ import { DiscoverTab } from './components/tabs/DiscoverTab';
 import { ChatTab } from './components/tabs/ChatTab';
 import { KnowledgeTab } from './components/tabs/KnowledgeTab';
 import { LearnTab } from './components/tabs/LearnTab';
+import { ConfirmModal } from './components/modals/ConfirmModal';
+import { SettingsModal } from './components/modals/SettingsModal';
+import { NewCollectionModal } from './components/modals/NewCollectionModal';
+import { AddToCollectionModal } from './components/modals/AddToCollectionModal';
 import { CreateTab } from './components/tabs/CreateTab';
 import { CodeBlock } from './components/CodeBlock';
 
@@ -854,6 +858,104 @@ function App() {
       )}
 
       {/* Global Confirm Modal */}
+      <ConfirmModal 
+        isOpen={!!(confirmDialog && confirmDialog.isOpen)}
+        title={confirmDialog?.title || ''}
+        message={confirmDialog?.message || ''}
+        onConfirm={() => {
+          if (confirmDialog) confirmDialog.onConfirm();
+          setConfirmDialog(null);
+        }}
+        onCancel={() => setConfirmDialog(null)}
+      />
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-synora-accent/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="glass-panel w-full max-w-md p-8 relative z-10 animate-fade-in shadow-2xl border-synora-border/50">
+          <div className="flex justify-center mb-6">
+            <div className="p-3 bg-synora-surface rounded-2xl border border-synora-border shadow-lg">
+              <Sparkles className="w-10 h-10 text-synora-accent" />
+            </div>
+          </div>
+          
+          <h2 className="text-3xl font-bold text-center mb-2">Synora Engine</h2>
+          <p className="text-synora-text-secondary text-center mb-8">Your private knowledge operating system</p>
+
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-6 text-sm text-center">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-synora-text-secondary mb-1">Email</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+                className="glass-input w-full bg-synora-bg/50" 
+                placeholder="you@example.com"
+                required 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-synora-text-secondary mb-1">Password</label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className="glass-input w-full bg-synora-bg/50" 
+                placeholder="••••••••"
+                required 
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              disabled={isAuthenticating} 
+              className="btn-primary w-full mt-6 py-3 flex justify-center items-center gap-2"
+            >
+              {isAuthenticating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Key className="w-5 h-5" />}
+              {authMode === 'LOGIN' ? 'Access Knowledge Graph' : 'Create Account'}
+            </button>
+          </form>
+
+          <p className="text-center mt-6 text-sm text-synora-text-secondary">
+            {authMode === 'LOGIN' ? "Don't have an account?" : "Already have an account?"}{' '}
+            <button 
+              onClick={() => {
+                setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN');
+                setAuthError('');
+              }} 
+              className="text-synora-accent hover:underline font-medium"
+            >
+              {authMode === 'LOGIN' ? 'Sign up' : 'Log in'}
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden h-screen">
+      
+      {/* Global Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 left-4 z-[200] px-4 py-2 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-2 animate-fade-in ${
+          toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+          'bg-synora-surface/80 border-synora-border text-white'
+        }`}>
+          {toast.type === 'error' && <X className="w-4 h-4" />}
+          {toast.type === 'success' && <CheckCircle className="w-4 h-4" />}
+          {toast.type === 'info' && <MessageCircle className="w-4 h-4 text-synora-accent" />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {/* Global Confirm Modal */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center animate-fade-in p-4">
           <div className="bg-synora-surface border border-synora-border shadow-2xl rounded-2xl p-6 w-full max-w-md">
@@ -1035,248 +1137,37 @@ function App() {
             }} />
           )}
           {/* SETTINGS MODAL */}
-          {isSettingsOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="max-w-3xl w-full mx-auto glass-panel p-6 md:p-8 relative">
-                <button 
-                  onClick={() => setIsSettingsOpen(false)}
-                  className="absolute top-4 right-4 p-2 text-synora-text-secondary hover:text-white bg-synora-bg rounded-full border border-synora-border transition-colors hover:border-synora-accent/50"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-                <div className="flex items-center gap-3 mb-8 border-b border-synora-border pb-4 pr-12">
-                  <Settings className="w-6 h-6 text-synora-accent" />
-                  <h2 className="text-2xl font-bold">Settings & Configuration</h2>
-                </div>
+          <SettingsModal 
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            modelConfig={modelConfig}
+            setModelConfig={setModelConfig}
+            userPreferences={userPreferences}
+            setUserPreferences={setUserPreferences}
+            handleLogout={handleLogout}
+            isSavingPreferences={isSavingPreferences}
+            setIsSavingPreferences={setIsSavingPreferences}
+            fetchWithAuth={fetchWithAuth}
+          />
+{/* Modals */}
+      <NewCollectionModal 
+        isOpen={showNewCollectionModal}
+        onClose={() => setShowNewCollectionModal(false)}
+        newCollectionName={newCollectionName}
+        setNewCollectionName={setNewCollectionName}
+        fetchWithAuth={fetchWithAuth}
+        fetchKnowledge={fetchKnowledge}
+      />
 
-                <div className="space-y-8">
-                  <section>
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <BrainCircuit className="w-5 h-5 text-synora-accent" /> Local AI Model
-                    </h3>
-                    <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5">
-                      <p className="text-sm text-synora-text-secondary mb-4">
-                        Select which Ollama model Synora should use for knowledge extraction, charting, and drafting. 
-                        Ensure you have run <code className="bg-synora-bg px-1.5 py-0.5 rounded text-synora-accent">ollama pull &lt;model&gt;</code> before selecting it here.
-                      </p>
-                      <select 
-                        value={modelConfig} 
-                        onChange={(e) => setModelConfig(e.target.value)}
-                        className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm"
-                      >
-                        <option value="auto">Auto (Task-based Selection) - Recommended</option>
-                        <option value="llama3.1">llama3.1 (Llama 3.1 8B Instruct)</option>
-                        <option value="llama3.2">llama3.2 (Fast & Lightweight)</option>
-                        <option value="deepseek-coder-v2">deepseek-coder-v2 (Coding & Technical)</option>
-                        <option value="gemma2">gemma2 (Creative & Drafting)</option>
-                        <option value="qwen2.5">qwen2.5 (Multilingual)</option>
-                      </select>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Key className="w-5 h-5 text-synora-accent" /> Account
-                    </h3>
-                    <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-white">Logged in</p>
-                        <p className="text-sm text-synora-text-secondary">Your knowledge graph is synced and secure.</p>
-                      </div>
-                      <button onClick={handleLogout} className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium">
-                        Log Out
-                      </button>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Settings className="w-5 h-5 text-synora-accent" /> AI Personality & Custom Instructions
-                    </h3>
-                    <div className="bg-synora-surface/50 border border-synora-border rounded-xl p-5">
-                      <p className="text-sm text-synora-text-secondary mb-4">
-                        Tell Synora how you want it to behave. (e.g. "Always answer like a pirate", "Keep answers short", "Prefer Python code").
-                      </p>
-                      <textarea 
-                        className="w-full glass-input bg-synora-bg/80 outline-none focus:border-synora-accent text-sm p-3 min-h-[100px] resize-y custom-scrollbar"
-                        placeholder="Enter your preferences here..."
-                        value={userPreferences}
-                        onChange={(e) => setUserPreferences(e.target.value)}
-                      />
-                      <div className="flex justify-end mt-4">
-                        <button 
-                          disabled={isSavingPreferences}
-                          onClick={async () => {
-                            setIsSavingPreferences(true);
-                            try {
-                              await fetchWithAuth('http://localhost:3001/auth/profile', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ preferences: userPreferences })
-                              });
-                              setIsSettingsOpen(false); // Close modal on success
-                            } catch (e) {
-                              console.error(e);
-                            } finally {
-                              setIsSavingPreferences(false);
-                            }
-                          }}
-                          className="px-4 py-2 bg-synora-accent text-white rounded-lg hover:bg-synora-accent/90 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50"
-                        >
-                          {isSavingPreferences ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                          {isSavingPreferences ? 'Saving...' : 'Save Preferences'}
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </div>
-            </div>
-          )}
-          
-        
-
-      {/* PUBLISH TAB */}
-      {activeTab === 'PUBLISH' && (
-        <PublishTab
-          publishFormat={publishFormat}
-          setPublishFormat={setPublishFormat}
-          publishStyle={publishStyle}
-          setPublishStyle={setPublishStyle}
-          publishSelectedTopics={publishSelectedTopics}
-          setPublishSelectedTopics={setPublishSelectedTopics}
-          isPublishing={isPublishing}
-          setIsPublishing={setIsPublishing}
-          publishOutput={publishOutput}
-          setPublishOutput={setPublishOutput}
-          publishCopied={publishCopied}
-          setPublishCopied={setPublishCopied}
-          topics={topics}
-          fetchWithAuth={fetchWithAuth}
-        />
-      )}
-          {/* Modals */}
-      {showNewCollectionModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in p-4">
-          <div className="bg-synora-surface border border-synora-border rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold flex items-center gap-2 text-white">
-                <Layers className="w-5 h-5 text-synora-accent" /> New Collection
-              </h3>
-              <button onClick={() => setShowNewCollectionModal(false)} className="text-synora-text-secondary hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-synora-text-secondary mb-1">Collection Name</label>
-                <input 
-                  autoFocus
-                  type="text" 
-                  value={newCollectionName}
-                  onChange={e => setNewCollectionName(e.target.value)}
-                  className="w-full bg-synora-bg border border-synora-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-synora-accent transition-colors"
-                  placeholder="e.g. Machine Learning"
-                  onKeyDown={async e => {
-                    if (e.key === 'Enter' && newCollectionName.trim()) {
-                      const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: newCollectionName.trim() })
-                      });
-                      if (res.ok) {
-                        fetchKnowledge();
-                        setShowNewCollectionModal(false);
-                        setNewCollectionName('');
-                      }
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  onClick={() => setShowNewCollectionModal(false)}
-                  className="px-4 py-2 rounded-lg font-medium text-synora-text-secondary hover:text-white hover:bg-synora-bg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  disabled={!newCollectionName.trim()}
-                  onClick={async () => {
-                    const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ name: newCollectionName.trim() })
-                    });
-                    if (res.ok) {
-                      fetchKnowledge();
-                      setShowNewCollectionModal(false);
-                      setNewCollectionName('');
-                    }
-                  }}
-                  className="px-4 py-2 bg-synora-accent text-white rounded-lg font-bold hover:bg-emerald-400 transition-colors disabled:opacity-50"
-                >
-                  Create Collection
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAddToCollectionModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in p-4">
-          <div className="bg-synora-surface border border-synora-border rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold flex items-center gap-2 text-white">
-                <Plus className="w-5 h-5 text-synora-accent" /> Add to Collection
-              </h3>
-              <button onClick={() => setShowAddToCollectionModal(null)} className="text-synora-text-secondary hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {collections.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-synora-text-secondary mb-4">You don't have any collections yet.</p>
-                <button 
-                  onClick={() => {
-                    setShowAddToCollectionModal(null);
-                    setShowNewCollectionModal(true);
-                  }}
-                  className="px-4 py-2 bg-synora-bg border border-synora-border text-white rounded-lg hover:border-synora-accent transition-colors"
-                >
-                  Create your first collection
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {collections.map(col => (
-                  <button
-                    key={col.id}
-                    onClick={async () => {
-                      await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${showAddToCollectionModal.artifactId}/collections`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ collectionId: col.id })
-                      });
-                      fetchKnowledge();
-                      setShowAddToCollectionModal(null);
-                    }}
-                    className="w-full flex items-center justify-between p-3 bg-synora-bg border border-synora-border rounded-lg hover:border-synora-accent hover:bg-synora-accent/5 transition-all text-left group"
-                  >
-                    <span className="font-medium text-white group-hover:text-synora-accent transition-colors">{col.name}</span>
-                    <span className="text-xs text-synora-text-secondary bg-synora-surface px-2 py-1 rounded-full">{col.artifacts?.length || 0} items</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-
-
+      <AddToCollectionModal 
+        isOpen={!!showAddToCollectionModal}
+        onClose={() => setShowAddToCollectionModal(null)}
+        collections={collections}
+        artifactId={showAddToCollectionModal?.artifactId || ''}
+        fetchWithAuth={fetchWithAuth}
+        fetchKnowledge={fetchKnowledge}
+        onOpenNewCollection={() => setShowNewCollectionModal(true)}
+      />
     </div>
   );
 }
