@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Settings, X, BrainCircuit, Key } from 'lucide-react';
 

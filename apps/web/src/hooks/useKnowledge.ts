@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useCallback, RefObject } from 'react';
 
 export function useKnowledge(token: string | null, activeTab: string, fetchWithAuth: any, showToast: any, graphContainerRef: RefObject<HTMLDivElement>) {

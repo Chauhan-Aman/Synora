@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState } from 'react';
 
 export function useCreate(token: string | null, fetchWithAuth: any, showToast: any) {

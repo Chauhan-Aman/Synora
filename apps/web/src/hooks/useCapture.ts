@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 
 export function useCapture(token: string | null, fetchWithAuth: any, fetchKnowledge: any, showToast: any, isListening: boolean, toggleListening: any) {

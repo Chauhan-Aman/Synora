@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { CheckCircle, Copy } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';

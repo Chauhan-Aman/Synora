@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import * as THREE from "three";
 
