@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useAuth } from './hooks/useAuth';
+import { useKnowledge } from './hooks/useKnowledge';
+import { useCapture } from './hooks/useCapture';
+import { useChat } from './hooks/useChat';
+import { useCreate } from './hooks/useCreate';
+import { usePublish } from './hooks/usePublish';
+import { useDiscover } from './hooks/useDiscover';
+import { useLearn } from './hooks/useLearn';
 import { BrainCircuit, CheckCircle, Compass, FileText, GraduationCap, Key, Layers, Link, Loader2, LogOut, MessageSquare, Plus, Rss, Settings, Sparkles, X, Copy, Trash2, Edit3, Type, Box, Mic, MicOff, Search, Network, List as ListIcon, Workflow, Hash, Volume2, VolumeX, Send, Image as ImageIcon, Briefcase, MessageCircle, Mail, CheckSquare, Square, Download, Printer, Globe, Wand2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -86,30 +94,81 @@ const CodeBlock = ({ inline, className, children, ...props }: any) => {
 
 function App() {
   // Authentication State
-  const [token, setToken] = useState<string | null>(localStorage.getItem('synora_token'));
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [userPreferences, setUserPreferences] = useState('');
-  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  
+  
+  
+  
+  
+  
+  
+  
 
+  const {
+    token, authMode, setAuthMode, email, setEmail, password, setPassword, authError, setAuthError,
+    isAuthenticating, userPreferences, setUserPreferences, isSavingPreferences, savePreferences,
+    isSettingsOpen, setIsSettingsOpen, fetchWithAuth, handleLogin, handleRegister, handleLogout
+  } = useAuth();
+  const {
+    artifacts, setArtifacts, graphData, setGraphData, isLoadingKnowledge, setIsLoadingKnowledge,
+    knowledgeView, setKnowledgeView, showWebSearches, setShowWebSearches, selectedNode, setSelectedNode,
+    graphSearchQuery, setGraphSearchQuery, graphSearchSelectedIndex, setGraphSearchSelectedIndex,
+    artifactDiagram, setArtifactDiagram, isGeneratingDiagram, setIsGeneratingDiagram,
+    selectedArtifact, setSelectedArtifact, annotations, setAnnotations, newAnnotation, setNewAnnotation,
+    collections, setCollections, insights, setInsights, isGeneratingInsights, setIsGeneratingInsights,
+    selectedCollectionId, setSelectedCollectionId, showNewCollectionModal, setShowNewCollectionModal,
+    newCollectionName, setNewCollectionName, showAddToCollectionModal, setShowAddToCollectionModal,
+    showCollections, setShowCollections, wikiSummary, setWikiSummary, isFetchingWiki, setIsFetchingWiki,
+    graphDimensions, setGraphDimensions, fetchKnowledge, fetchWiki, handleGenerateSummary,
+    handleFormat, handleTranslate
+  } = useKnowledge(token, activeTab, fetchWithAuth, showToast, graphContainerRef);
+  const {
+    inputType, setInputType, inputValue, setInputValue,
+    selectedFile, setSelectedFile, isSubmitting, setIsSubmitting,
+    status, setStatus, artifactId, setArtifactId, handleCaptureSubmit
+  } = useCapture(token, fetchWithAuth, fetchKnowledge, showToast, isListening, toggleListening);
+  const {
+    chatQuery, setChatQuery, isChatting, setIsChatting, forceWebSearch, setForceWebSearch,
+    chatHistory, setChatHistory, currentSessionId, setCurrentSessionId, chatSessions, setChatSessions,
+    editingSessionId, setEditingSessionId, editingTitle, setEditingTitle, isListening, setIsListening,
+    isSpeaking, setIsSpeaking, isVoiceEnabled, setIsVoiceEnabled, chatEndRef, loadSession,
+    renameSession, deleteSession, handleChatSubmit, stopSpeaking, speak, toggleListening
+  } = useChat(token, fetchWithAuth);
+  const {
+    draftText, setDraftText, coverData, setCoverData, isGeneratingCover, setIsGeneratingCover,
+    draftContext, setDraftContext, isGeneratingParagraph, setIsGeneratingParagraph,
+    isProofreading, setIsProofreading, suggestedParagraph, setSuggestedParagraph,
+    revisionPrompt, setRevisionPrompt, isRevising, setIsRevising, modelConfig, setModelConfig,
+    handleProofread, handleRevise, generateCover, generateNextParagraph
+  } = useCreate(token, fetchWithAuth, showToast);
+  const {
+    publishFormat, setPublishFormat, publishStyle, setPublishStyle,
+    publishSelectedTopics, setPublishSelectedTopics, publishOutput, setPublishOutput,
+    isPublishing, setIsPublishing, publishCopied, setPublishCopied
+  } = usePublish();
+
+  const {
+    discoverQuery, setDiscoverQuery, isDiscovering, setIsDiscovering,
+    discoveryResults, setDiscoveryResults
+  } = useDiscover();
+
+  const {
+    flashcards, setFlashcards, currentCardIndex, setCurrentCardIndex,
+    isFlipped, setIsFlipped, isLoadingLearn, setIsLoadingLearn
+  } = useLearn();
+
+
+
+
+
+  
   const [activeTab, setActiveTab] = useState<Tab>('CAPTURE');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
   
   // Capture State
-  const [inputType, setInputType] = useState<InputType>('URL');
-  const [inputValue, setInputValue] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [artifactId, setArtifactId] = useState<string | null>(null);
 
   // Knowledge State
   const [topics, setTopics] = useState<Topic[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   
   // Toast State
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -119,35 +178,15 @@ function App() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
-  const [graphData, setGraphData] = useState<{nodes: any[], links: any[]}>({ nodes: [], links: [] });
-  const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isFormatting, setIsFormatting] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
-  const [showWebSearches, setShowWebSearches] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [graphSearchQuery, setGraphSearchQuery] = useState("");
-  const [graphSearchSelectedIndex, setGraphSearchSelectedIndex] = useState(0);
-  const [artifactDiagram, setArtifactDiagram] = useState<string | null>(null);
-  const [isGeneratingDiagram, setIsGeneratingDiagram] = useState(false);
-  const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
   
   // Smart Folders & Annotations State
-  const [annotations, setAnnotations] = useState<any[]>([]);
-  const [newAnnotation, setNewAnnotation] = useState('');
 
   // Publish State
-  const [publishFormat, setPublishFormat] = useState<ContentFormat>('blog');
-  const [publishStyle, setPublishStyle] = useState<WritingStyle>('conversational');
-  const [publishSelectedTopics, setPublishSelectedTopics] = useState<Set<string>>(new Set());
-  const [publishOutput, setPublishOutput] = useState('');
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [publishCopied, setPublishCopied] = useState(false);
 
   const [activeRadialCategory, setActiveRadialCategory] = useState<{ id: string, title: string, items: RadialMenuItem[] } | null>(null);
-  const [wikiSummary, setWikiSummary] = useState<string | null>(null);
-  const [isFetchingWiki, setIsFetchingWiki] = useState(false);
 
   useEffect(() => {
     setWikiSummary(null);
@@ -166,21 +205,7 @@ function App() {
     }
   }, [selectedArtifact, token]);
 
-  const fetchWiki = async (topic: string) => {
-    setIsFetchingWiki(true);
-    try {
-      const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`);
-      const data = await res.json();
-      if (data.extract) {
-        setWikiSummary(data.extract);
-      } else {
-        setWikiSummary("No article found for this concept on Wikipedia.");
-      }
-    } catch (e) {
-      setWikiSummary("Failed to fetch article.");
-    }
-    setIsFetchingWiki(false);
-  };
+  ;
 
   const radialCategories = useMemo(() => {
     const cats: Record<string, RadialMenuItem[]> = {
@@ -206,7 +231,6 @@ function App() {
   // Resize logic for Graph
   const graphContainerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
-  const [graphDimensions, setGraphDimensions] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     if (!graphContainerRef.current) return;
@@ -221,39 +245,19 @@ function App() {
   }, [knowledgeView, activeTab, token]);
 
   // Phase 15: Knowledge State
-  const [collections, setCollections] = useState<any[]>([]);
-  const [insights, setInsights] = useState<any[]>([]);
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
-  const [showNewCollectionModal, setShowNewCollectionModal] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState('');
-  const [showAddToCollectionModal, setShowAddToCollectionModal] = useState<{artifactId: string} | null>(null);
-  const [showCollections, setShowCollections] = useState(true);
 
 
   // Chat State
-  const [chatQuery, setChatQuery] = useState('');
-  const [isChatting, setIsChatting] = useState(false);
-  const [forceWebSearch, setForceWebSearch] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
     role: 'assistant',
     content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
   }]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Voice State
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
   // Learn State
-  const [flashcards, setFlashcards] = useState<any[]>([]);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [isLoadingLearn, setIsLoadingLearn] = useState(false);
 
   // Discover State
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -266,17 +270,7 @@ function App() {
   const [divingId, setDivingId] = useState<string | null>(null);
 
   // Create Studio State
-  const [draftText, setDraftText] = useState("");
-  const [coverData, setCoverData] = useState<any>(null);
-  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
-  const [draftContext, setDraftContext] = useState<any[]>([]);
-  const [isGeneratingParagraph, setIsGeneratingParagraph] = useState(false);
-  const [isProofreading, setIsProofreading] = useState(false);
-  const [suggestedParagraph, setSuggestedParagraph] = useState<string>("");
-  const [revisionPrompt, setRevisionPrompt] = useState<string>("");
-  const [isRevising, setIsRevising] = useState(false);
   const draftTimeoutRef = useRef<any>(null);
-  const [modelConfig, setModelConfig] = useState(localStorage.getItem('synora_model') || 'auto');
 
   useEffect(() => {
     localStorage.setItem('synora_model', modelConfig);
@@ -382,25 +376,9 @@ function App() {
     }
   }, []);
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) return;
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
-      if (isSpeaking && synthRef.current) {
-        synthRef.current.cancel();
-        setIsSpeaking(false);
-      }
-      recognitionRef.current.start();
-    }
-  };
+  ;
 
-  const stopSpeaking = () => {
-    if (synthRef.current) {
-      synthRef.current.cancel();
-      setIsSpeaking(false);
-    }
-  };
+  ;
 
   const speakText = (text: string) => {
     if (!synthRef.current) return;
@@ -459,49 +437,9 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('synora_token');
-    setToken(null);
-    setTopics([]);
-    setEntities([]);
-    setGraphData({ nodes: [], links: [] });
-  };
+  ;
 
-  const fetchKnowledge = async () => {
-    setIsLoadingKnowledge(true);
-    try {
-      const [topicsRes, entitiesRes, graphRes, artifactsRes, collectionsRes, insightsRes] = await Promise.all([
-        fetchWithAuth('http://localhost:3001/knowledge/topics'),
-        fetchWithAuth('http://localhost:3001/knowledge/entities'),
-        fetchWithAuth('http://localhost:3001/knowledge/graph'),
-        fetchWithAuth('http://localhost:3001/knowledge/artifacts'),
-        fetchWithAuth('http://localhost:3001/knowledge/collections'),
-        fetchWithAuth('http://localhost:3001/knowledge/insights')
-      ]);
-      const topicsData = await topicsRes.json();
-      const entitiesData = await entitiesRes.json();
-      const graphDataJson = await graphRes.json();
-      const artifactsData = await artifactsRes.json();
-      const collectionsData = await collectionsRes.json();
-      const insightsData = await insightsRes.json();
-
-      setTopics(topicsRes.ok ? topicsData : []);
-      setEntities(entitiesRes.ok ? entitiesData : []);
-      setGraphData(graphRes.ok ? graphDataJson : { nodes: [], links: [] });
-      setArtifacts(artifactsRes.ok ? artifactsData : []);
-      setCollections(collectionsRes.ok ? collectionsData : []);
-      setInsights(insightsRes.ok ? insightsData : []);
-      
-      if (!topicsRes.ok) console.error("Topics Error:", topicsData);
-      if (!entitiesRes.ok) console.error("Entities Error:", entitiesData);
-      if (!graphRes.ok) console.error("Graph Error:", graphDataJson);
-      if (!artifactsRes.ok) console.error("Artifacts Error:", artifactsData);
-    } catch (err: any) {
-      console.error("Failed to fetch knowledge graph", err);
-    } finally {
-      setIsLoadingKnowledge(false);
-    }
-  };
+  ;
 
   const fetchLearn = async () => {
     setIsLoadingLearn(true);
@@ -691,152 +629,9 @@ function App() {
     }
   };
 
-  const handleCaptureSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputType === 'FILE' && !selectedFile) return;
-    if (inputType !== 'FILE' && !inputValue.trim()) return;
+  ;
 
-    setIsSubmitting(true);
-    setStatus('idle');
-    setArtifactId(null);
-
-    try {
-      let response;
-      if (inputType === 'FILE') {
-        const formData = new FormData();
-        formData.append('file', selectedFile as File);
-        
-        response = await fetchWithAuth('http://localhost:3001/capture/upload', {
-          method: 'POST',
-          body: formData,
-        });
-      } else {
-        response = await fetchWithAuth('http://localhost:3001/capture', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: inputType === 'VOICE' ? 'TEXT' : inputType,
-            [inputType === 'URL' ? 'sourceUrl' : 'content']: inputValue,
-            model: modelConfig
-          }),
-        });
-      }
-
-      if (!response.ok) throw new Error('Failed to submit capture');
-
-      const data = await response.json();
-      setArtifactId(data.artifactId);
-      setStatus('success');
-      setInputValue('');
-    } catch (err) {
-      console.error(err);
-      setStatus('error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatQuery.trim() || isChatting) return;
-
-    const userMessage = chatQuery;
-    setChatQuery('');
-    setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
-    setIsChatting(true);
-    
-    // Add empty assistant message placeholder
-    setChatHistory(prev => [...prev, { role: 'assistant', content: '', sources: [], agentLogs: [] }]);
-
-    try {
-      const response = await fetchWithAuth('http://localhost:3001/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig, sessionId: currentSessionId }),
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch chat response');
-      if (!response.body) throw new Error('Streaming not supported');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const messages = chunk.split('\n\n').filter(Boolean);
-        
-        for (const msg of messages) {
-          if (msg.startsWith('data: ')) {
-            const dataStr = msg.substring(6);
-            try {
-              const data = JSON.parse(dataStr);
-              if (data.type === 'session_info') {
-                setCurrentSessionId(data.sessionId);
-              } else if (data.type === 'log') {
-                setChatHistory(prev => {
-                  const newHistory = [...prev];
-                  const lastMsg = newHistory[newHistory.length - 1];
-                  const existingLogs = [...(lastMsg.agentLogs || [])];
-                  
-                  // If a 'done' log arrives for the same action as a 'pending' log,
-                  // update the existing entry in-place instead of appending a duplicate.
-                  if (data.log.status === 'done') {
-                    const pendingIdx = existingLogs.findLastIndex(
-                      (l: any) => l.action === data.log.action && l.status === 'pending'
-                    );
-                    if (pendingIdx !== -1) {
-                      existingLogs[pendingIdx] = data.log;
-                      newHistory[newHistory.length - 1] = { ...lastMsg, agentLogs: existingLogs };
-                      return newHistory;
-                    }
-                  }
-                  
-                  // Otherwise append as a new entry
-                  newHistory[newHistory.length - 1] = { ...lastMsg, agentLogs: [...existingLogs, data.log] };
-                  return newHistory;
-                });
-              } else if (data.type === 'metadata') {
-                setChatHistory(prev => {
-                  const newHistory = [...prev];
-                  const lastMsg = newHistory[newHistory.length - 1];
-                  newHistory[newHistory.length - 1] = { ...lastMsg, sources: data.sources || [] };
-                  return newHistory;
-                });
-              } else if (data.type === 'text') {
-                assistantText += data.text;
-                setChatHistory(prev => {
-                  const newHistory = [...prev];
-                  newHistory[newHistory.length - 1] = { ...newHistory[newHistory.length - 1], content: assistantText };
-                  return newHistory;
-                });
-              }
-            } catch(e) {}
-          }
-        }
-      }
-      
-      // Auto-speak response if enabled
-      if (isVoiceEnabled) {
-        speakText(assistantText);
-      }
-      
-    } catch (err) {
-      console.error(err);
-      setChatHistory(prev => {
-        const newHistory = [...prev];
-        newHistory[newHistory.length - 1] = { 
-          role: 'assistant', 
-          content: "Oops! Something went wrong trying to connect to Synora. Ensure Ollama is running." 
-        };
-        return newHistory;
-      });
-    } finally {
-      setIsChatting(false);
-    }
-  };
+  ;
 
   const handleGenerateParagraph = async () => {
     if (!draftText.trim() || isGeneratingParagraph) return;
@@ -858,25 +653,7 @@ function App() {
     }
   };
 
-  const handleProofread = async () => {
-    if (!draftText.trim() || isProofreading) return;
-    setIsProofreading(true);
-    try {
-      const res = await fetchWithAuth('http://localhost:3001/create/proofread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft: draftText, model: modelConfig })
-      });
-      const data = await res.json();
-      if (data.proofreadText) {
-        setDraftText(data.proofreadText);
-      }
-    } catch (error) {
-      console.error("Error proofreading document:", error);
-    } finally {
-      setIsProofreading(false);
-    }
-  };
+  ;
 
   const handleGenerateCover = async () => {
     if (!draftText.trim() || isGeneratingCover) return;
@@ -1158,16 +935,18 @@ function App() {
           {/* CAPTURE TAB */}
           {activeTab === 'CAPTURE' && (
             <CaptureTab
-              knowledgeView={knowledgeView}
-              captureText={captureText}
-              setCaptureText={setCaptureText}
-              isCapturing={isCapturing}
-              setIsCapturing={setIsCapturing}
-              captureSource={captureSource}
-              setCaptureSource={setCaptureSource}
-              token={token}
-              showToast={showToast}
-              fetchKnowledge={fetchKnowledge}
+              inputType={inputType}
+              setInputType={setInputType}
+              inputValue={inputValue}
+              setInputValue={setInputValue}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              isSubmitting={isSubmitting}
+              isListening={isListening}
+              toggleListening={toggleListening}
+              handleCaptureSubmit={handleCaptureSubmit}
+              status={status}
+              artifactId={artifactId}
             />
           )}
           {/* KNOWLEDGE TAB */}
