@@ -212,8 +212,10 @@ export class InferenceProcessor extends WorkerHost {
       }
 
       if (extractedData.summary) {
-        await this.prisma.summary.create({
-          data: {
+        await this.prisma.summary.upsert({
+          where: { artifactId: artifactId },
+          update: { text: extractedData.summary },
+          create: {
             text: extractedData.summary,
             artifactId: artifactId,
             userId: artifact.userId,
@@ -240,6 +242,10 @@ export class InferenceProcessor extends WorkerHost {
           });
         }
       }
+
+      // Clear old flashcards and chunks if this is an update
+      await this.prisma.flashcard.deleteMany({ where: { artifactId } });
+      await this.prisma.chunk.deleteMany({ where: { artifactId } });
 
       if (Array.isArray(extractedData.flashcards)) {
         this.logger.log(`Saving ${extractedData.flashcards.length} flashcards...`);
