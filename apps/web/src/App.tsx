@@ -112,6 +112,34 @@ function App() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Title Editing State
+  const [editingTitleId, setEditingTitleId] = useState(null);
+  const [editingTitleValue, setEditingTitleValue] = useState('');
+
+  /** Rename an artifact title in-place without triggering AI re-processing */
+  const renameArtifact = async (id, newTitle) => {
+    if (!newTitle.trim()) return;
+    try {
+      const res = await fetchWithAuth(`http://localhost:3001/capture/${id}/title`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+      if (res.ok) {
+        setArtifacts((prev) => prev.map((a) => a.id === id ? { ...a, title: newTitle.trim() } : a));
+        if (selectedArtifact?.id === id) setSelectedArtifact((prev) => prev ? { ...prev, title: newTitle.trim() } : prev);
+        showToast('Title updated', 'success');
+      } else {
+        showToast('Failed to rename', 'error');
+      }
+    } catch {
+      showToast('Failed to rename', 'error');
+    } finally {
+      setEditingTitleId(null);
+    }
+  };
+
   const [graphData, setGraphData] = useState<{nodes: any[], links: any[]}>({ nodes: [], links: [] });
   const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -1336,7 +1364,35 @@ function App() {
                                     <span className="text-xs text-synora-text-secondary whitespace-nowrap">{new Date(artifact.createdAt).toLocaleDateString()}</span>
                                   </div>
                                 </div>
-                                <h4 className="text-lg font-bold text-white group-hover:text-synora-accent transition-colors break-words">{artifact.title}</h4>
+                                {editingTitleId === artifact.id ? (
+                                  <div className="flex items-center gap-2 mt-1" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      id={`title-input-${artifact.id}`}
+                                      autoFocus
+                                      className="flex-1 bg-synora-bg border border-synora-accent/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-synora-accent/40"
+                                      value={editingTitleValue}
+                                      onChange={e => setEditingTitleValue(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') renameArtifact(artifact.id, editingTitleValue);
+                                        if (e.key === 'Escape') setEditingTitleId(null);
+                                      }}
+                                    />
+                                    <button onClick={() => renameArtifact(artifact.id, editingTitleValue)} className="p-1.5 rounded-lg bg-synora-accent/20 text-synora-accent hover:bg-synora-accent hover:text-white transition-colors text-xs font-bold shrink-0">Save</button>
+                                    <button onClick={() => setEditingTitleId(null)} className="p-1.5 rounded-lg bg-synora-surface border border-synora-border text-synora-text-secondary hover:text-white transition-colors shrink-0">✕</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-start gap-2 group/title">
+                                    <h4 className="text-lg font-bold text-white group-hover:text-synora-accent transition-colors break-words flex-1">{artifact.title}</h4>
+                                    <button
+                                      id={`rename-btn-${artifact.id}`}
+                                      onClick={e => { e.stopPropagation(); setEditingTitleId(artifact.id); setEditingTitleValue(artifact.title || ''); }}
+                                      className="opacity-0 group-hover/title:opacity-100 p-1 rounded-md text-synora-text-secondary hover:text-synora-accent hover:bg-synora-surface transition-all shrink-0 mt-0.5"
+                                      title="Rename"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    </button>
+                                  </div>
+                                )}
                                 <p className="text-sm text-synora-text-secondary line-clamp-2">{artifact.summary || artifact.content?.substring(0, 150)}</p>
                               </div>
                             ))}
@@ -1593,9 +1649,37 @@ function App() {
                           <span className="text-xs font-bold px-2 py-1 rounded-full border bg-synora-surface text-synora-accent border-synora-accent/30 mb-2 inline-block">
                             {selectedArtifact.type}
                           </span>
-                          <h2 className="text-2xl font-bold text-white max-w-2xl break-words">
-                            {selectedArtifact.title || (selectedArtifact.sourceUrl ? selectedArtifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : 'Unknown Document')}
-                          </h2>
+                          {editingTitleId === selectedArtifact.id ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <input
+                                id="modal-title-input"
+                                autoFocus
+                                className="flex-1 bg-synora-bg border border-synora-accent/50 rounded-xl px-4 py-2 text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-synora-accent/40"
+                                value={editingTitleValue}
+                                onChange={e => setEditingTitleValue(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') renameArtifact(selectedArtifact.id, editingTitleValue);
+                                  if (e.key === 'Escape') setEditingTitleId(null);
+                                }}
+                              />
+                              <button onClick={() => renameArtifact(selectedArtifact.id, editingTitleValue)} className="px-3 py-2 rounded-xl bg-synora-accent/20 text-synora-accent hover:bg-synora-accent hover:text-white transition-colors text-sm font-bold shrink-0">Save</button>
+                              <button onClick={() => setEditingTitleId(null)} className="px-3 py-2 rounded-xl bg-synora-surface border border-synora-border text-synora-text-secondary hover:text-white transition-colors shrink-0">✕</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 group/modal-title">
+                              <h2 className="text-2xl font-bold text-white max-w-2xl break-words">
+                                {selectedArtifact.title || (selectedArtifact.sourceUrl ? selectedArtifact.sourceUrl.replace('synora://discovery/', 'Discovery Concept: ') : 'Unknown Document')}
+                              </h2>
+                              <button
+                                id="modal-rename-btn"
+                                onClick={() => { setEditingTitleId(selectedArtifact.id); setEditingTitleValue(selectedArtifact.title || ''); }}
+                                className="opacity-0 group-hover/modal-title:opacity-100 p-1.5 rounded-lg text-synora-text-secondary hover:text-synora-accent hover:bg-synora-surface transition-all shrink-0"
+                                title="Rename document"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                              </button>
+                            </div>
+                          )}
                           <p className="text-sm text-synora-text-secondary mt-1">{new Date(selectedArtifact.createdAt).toLocaleString()}</p>
                         </div>
                         <div className="flex items-center gap-2">

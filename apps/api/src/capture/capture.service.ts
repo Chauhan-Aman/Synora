@@ -99,6 +99,13 @@ export class CaptureService {
     });
   }
 
+  async renameArtifact(id: string, title: string, userId: string) {
+    return this.prisma.artifact.update({
+      where: { id, userId },
+      data: { title },
+    });
+  }
+
   async deleteArtifact(id: string, userId: string) {
     return this.prisma.artifact.deleteMany({
       where: { id, userId }

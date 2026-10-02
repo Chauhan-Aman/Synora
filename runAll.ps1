@@ -1,0 +1,11 @@
+node refactorAuth.js
+node extractKnowledgeHook.js
+node injectKnowledge.js
+node extractCaptureHook.js
+node injectCapture.js
+node extractChatHook.js
+node injectChat.js
+node extractCreateHook.js
+node injectCreate.js
+node fixCapture.js
+node injectFinalHooks.js

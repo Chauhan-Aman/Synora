@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, BadRequestException, Param } from '@nestjs/common';
 import { CaptureService } from './capture.service';
 import { LlmService } from '../common/llm.service';
 import { CreateCaptureDto } from './dto/create-capture.dto';
@@ -26,6 +26,18 @@ export class CaptureController {
   @HttpCode(HttpStatus.OK)
   update(@Param('id') id: string, @Body() updateCaptureDto: Partial<CreateCaptureDto>, @CurrentUser() user: any) {
     return this.captureService.update(id, updateCaptureDto, user.userId);
+  }
+
+  /** Lightweight title-only rename — does NOT trigger re-processing */
+  @Patch(':id/title')
+  @HttpCode(HttpStatus.OK)
+  renameTitle(
+    @Param('id') id: string,
+    @Body('title') title: string,
+    @CurrentUser() user: any,
+  ) {
+    if (!title?.trim()) throw new BadRequestException('Title cannot be empty');
+    return this.captureService.renameArtifact(id, title.trim(), user.userId);
   }
 
   @Post('upload')
