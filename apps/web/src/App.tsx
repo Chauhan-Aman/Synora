@@ -909,9 +909,8 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           title: draftTitle || 'Untitled Note', 
-          text: draftText,
-          type: 'TEXT',
-          tags: ['Draft']
+          content: draftText,
+          type: 'TEXT'
         })
       });
       if (res.ok) {
