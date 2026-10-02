@@ -2405,39 +2405,6 @@ function App() {
                         <><Save className="w-4 h-4 text-blue-400" /> Save Note</>
                       )}
                     </button>
-                    <button
-                      onClick={handleGenerateCover}
-                      disabled={isGeneratingCover || draftText.trim().length < 20}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0"
-                    >
-                      {isGeneratingCover ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Generating Cover...</>
-                      ) : (
-                        <><ImageIcon className="w-4 h-4 text-synora-accent" /> Generate Cover</>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleGenerateParagraph}
-                      disabled={isGeneratingParagraph || draftText.trim().length < 20}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-accent hover:bg-synora-accent-hover text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0"
-                    >
-                      {isGeneratingParagraph ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Co-Writing...</>
-                      ) : (
-                        <><Sparkles className="w-4 h-4" /> Draft Next Paragraph</>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleProofread}
-                      disabled={isProofreading || draftText.trim().length < 10}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0"
-                    >
-                      {isProofreading ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Polishing...</>
-                      ) : (
-                        <><Wand2 className="w-4 h-4 text-emerald-400" /> Proofread</>
-                      )}
-                    </button>
                   </div>
                 </div>
                 
