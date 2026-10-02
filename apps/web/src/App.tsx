@@ -288,6 +288,8 @@ function App() {
 
   // Create Studio State
   const [draftText, setDraftText] = useState("");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [coverData, setCoverData] = useState<any>(null);
   const [isGeneratingCover, setIsGeneratingCover] = useState(false);
   const [draftContext, setDraftContext] = useState<any[]>([]);
@@ -903,9 +905,16 @@ function App() {
   const handleSaveDraft = async () => {
     if (!draftText.trim()) return;
     setIsSavingDraft(true);
+
     try {
-      const res = await fetchWithAuth('http://localhost:3001/capture', {
-        method: 'POST',
+      const url = activeDraftId 
+        ? `http://localhost:3001/capture/${activeDraftId}`
+        : 'http://localhost:3001/capture';
+      
+      const method = activeDraftId ? 'PUT' : 'POST';
+
+      const res = await fetchWithAuth(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           title: draftTitle || 'Untitled Note', 
@@ -915,11 +924,38 @@ function App() {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.artifactId) {
+          setActiveDraftId(data.artifactId);
+        }
         
-        // Add to active collection if one is selected
-        if (selectedCollectionId) {
+        // Find or create "Drafts" collection
+        let draftsCollection = collections.find(c => c.name === 'Drafts');
+        if (!draftsCollection) {
+          const cRes = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Drafts' })
+          });
+          if (cRes.ok) draftsCollection = await cRes.json();
+        }
+
+        // Add to Drafts collection
+        if (draftsCollection) {
           try {
-            await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${data.id}/collections`, {
+            await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${data.artifactId}/collections`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ collectionId: draftsCollection.id })
+            });
+          } catch (e) {
+            console.error('Failed to link draft to Drafts collection:', e);
+          }
+        }
+
+        // Add to active collection if one is selected and it's not Drafts
+        if (selectedCollectionId && selectedCollectionId !== draftsCollection?.id) {
+          try {
+            await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${data.artifactId}/collections`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ collectionId: selectedCollectionId })
@@ -934,9 +970,9 @@ function App() {
       } else {
         showToast('Failed to save draft', 'error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving draft:', error);
-      showToast('Error saving draft', 'error');
+      showToast(`Error saving draft: ${error?.message || String(error)}`, 'error');
     } finally {
       setIsSavingDraft(false);
     }
@@ -1124,7 +1160,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden h-screen">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 print:p-0 relative overflow-hidden h-screen">
       
       {/* Global Toast Notification */}
       {toast && (
@@ -1186,7 +1222,7 @@ function App() {
       <div className="w-full max-w-5xl z-10 flex flex-col h-full animate-fade-in">
         
         {/* Header & Tabs */}
-        <div className="text-center mb-6 w-full shrink-0">
+        <div className="text-center mb-6 w-full shrink-0 print:hidden">
           <div className="inline-flex items-center justify-center p-3 bg-synora-surface rounded-2xl mb-4 border border-synora-border shadow-lg">
             <Sparkles className="w-8 h-8 text-synora-accent" />
           </div>
@@ -1196,7 +1232,16 @@ function App() {
             {(['CAPTURE', 'KNOWLEDGE', 'LEARN', 'CHAT', 'DISCOVER', 'CREATE', 'PUBLISH'] as Tab[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedArtifact(null); setArtifactDiagram(null); }}
+                onClick={() => { 
+                  setActiveTab(tab); 
+                  setSelectedArtifact(null); 
+                  setArtifactDiagram(null); 
+                  if (tab !== 'CREATE') {
+                    setActiveDraftId(null);
+                    setDraftText('');
+                    setDraftTitle('');
+                  }
+                }}
                 className={`flex-1 flex min-w-[100px] items-center justify-center gap-2 py-3 px-2 rounded-xl font-medium transition-all duration-300 ${
                   activeTab === tab
                     ? 'bg-synora-bg text-synora-text-primary shadow-md border border-synora-border/50 scale-100'
@@ -1394,13 +1439,14 @@ function App() {
                                       {artifact.type}
                                     </span>
                                   <div className="flex items-center gap-2 shrink-0">
-                                    {artifact.type === 'TEXT' && (
+                                    {artifact.type === 'TEXT' && artifact.collections?.some((c: any) => c.name === 'Drafts') && (
                                       <button 
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setDraftText(artifact.content || '');
-                                          setDraftTitle(artifact.title);
-                                          setActiveTab('create');
+                                          setDraftTitle(artifact.title || '');
+                                          setActiveDraftId(artifact.id);
+                                          setActiveTab('CREATE');
                                         }}
                                         className="text-xs px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 rounded-md text-blue-400 transition-colors flex items-center gap-1"
                                       >
@@ -1844,13 +1890,14 @@ function App() {
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-bold text-synora-text-secondary uppercase flex items-center gap-2"><FileText className="w-4 h-4"/> Full Document Content</h3>
                             <div className="flex items-center gap-2">
-                              {selectedArtifact.type === 'TEXT' && (
+                              {selectedArtifact.type === 'TEXT' && selectedArtifact.collections?.some((c: any) => c.name === 'Drafts') && (
                                 <button
                                   onClick={() => {
                                     setDraftText(selectedArtifact.content || '');
-                                    setDraftTitle(selectedArtifact.title);
+                                    setDraftTitle(selectedArtifact.title || '');
+                                    setActiveDraftId(selectedArtifact.id);
                                     setSelectedArtifact(null);
-                                    setActiveTab('create');
+                                    setActiveTab('CREATE');
                                   }}
                                   className="text-xs px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-md transition-colors flex items-center gap-2"
                                 >
@@ -2469,6 +2516,15 @@ function App() {
                   </div>
                 )}
 
+                <div className="mb-4 px-1">
+                  <input
+                    type="text"
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    placeholder="Document Title (Optional)"
+                    className="w-full bg-transparent border-b border-synora-border/50 text-xl font-semibold text-white placeholder:text-synora-text-secondary/50 focus:outline-none focus:border-synora-accent/50 pb-2 transition-colors"
+                  />
+                </div>
                 <RichTextEditor 
                   content={draftText} 
                   onChange={setDraftText} 
@@ -2698,9 +2754,9 @@ function App() {
 
       {/* PUBLISH TAB */}
       {activeTab === 'PUBLISH' && (
-        <div className="w-full h-full flex flex-col p-4 md:p-8">
+        <div className="w-full h-full flex flex-col p-4 md:p-8 print:p-0">
           <div className="max-w-6xl w-full mx-auto flex flex-col h-full min-h-0">
-            <div className="mb-8 shrink-0">
+            <div className="mb-8 shrink-0 print:hidden">
               <h2 className="text-3xl font-bold text-white mb-2">Content Pipeline</h2>
               <p className="text-synora-text-secondary">Transform your knowledge graph into publishable content using local AI.</p>
             </div>
@@ -2708,7 +2764,7 @@ function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
 
               {/* Panel 1: Configure */}
-              <div className="lg:col-span-1 space-y-5 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="lg:col-span-1 space-y-5 overflow-y-auto custom-scrollbar pr-2 pb-4 print:hidden">
                 <div className="glass-panel p-5">
                   <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2"><Layers className="w-4 h-4 text-synora-accent" /> Format</h3>
                   <div className="space-y-2">
@@ -2805,8 +2861,8 @@ function App() {
 
               {/* Panel 2: Preview */}
               <div className="lg:col-span-2 flex flex-col min-h-0">
-                <div className="glass-panel p-5 h-full flex flex-col min-h-0">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="glass-panel p-5 print:p-0 print:border-none print:shadow-none h-full flex flex-col min-h-0">
+                  <div className="flex items-center justify-between mb-4 print:hidden">
                     <h3 className="text-base font-semibold text-white flex items-center gap-2">
                       {publishFormat === 'blog' && <FileText className="w-4 h-4 text-synora-accent" />}
                       {publishFormat === 'linkedin' && <Briefcase className="w-4 h-4 text-blue-400" />}
