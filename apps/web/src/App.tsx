@@ -908,13 +908,28 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          title: 'My Article', 
+          title: draftTitle || 'Untitled Note', 
           text: draftText,
           type: 'TEXT',
           tags: ['Draft']
         })
       });
       if (res.ok) {
+        const data = await res.json();
+        
+        // Add to active collection if one is selected
+        if (selectedCollectionId) {
+          try {
+            await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${data.id}/collections`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ collectionId: selectedCollectionId })
+            });
+          } catch (e) {
+            console.error('Failed to link draft to collection:', e);
+          }
+        }
+
         showToast('Saved to Knowledge Graph', 'success');
         fetchKnowledge();
       } else {
@@ -1380,6 +1395,20 @@ function App() {
                                       {artifact.type}
                                     </span>
                                   <div className="flex items-center gap-2 shrink-0">
+                                    {artifact.type === 'TEXT' && (
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDraftText(artifact.content || '');
+                                          setDraftTitle(artifact.title);
+                                          setActiveTab('create');
+                                        }}
+                                        className="text-xs px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 rounded-md text-blue-400 transition-colors flex items-center gap-1"
+                                      >
+                                        <Edit3 className="w-3 h-3" />
+                                        Edit
+                                      </button>
+                                    )}
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1816,12 +1845,26 @@ function App() {
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-bold text-synora-text-secondary uppercase flex items-center gap-2"><FileText className="w-4 h-4"/> Full Document Content</h3>
                             <div className="flex items-center gap-2">
+                              {selectedArtifact.type === 'TEXT' && (
+                                <button
+                                  onClick={() => {
+                                    setDraftText(selectedArtifact.content || '');
+                                    setDraftTitle(selectedArtifact.title);
+                                    setSelectedArtifact(null);
+                                    setActiveTab('create');
+                                  }}
+                                  className="text-xs px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-md transition-colors flex items-center gap-2"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  Open in Editor
+                                </button>
+                              )}
                               <button 
                                 onClick={() => handleFormat(selectedArtifact.id)}
                                 disabled={isFormatting}
                                 className="text-xs px-3 py-1 bg-synora-surface hover:bg-synora-surface-hover text-white border border-synora-border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                               >
-                                {isFormatting ? <div className="w-3 h-3 rounded-full border-2 border-synora-text-secondary border-t-transparent animate-spin" /> : <Edit3 className="w-3 h-3" />}
+                                {isFormatting ? <div className="w-3 h-3 rounded-full border-2 border-synora-text-secondary border-t-transparent animate-spin" /> : <FileText className="w-3 h-3" />}
                                 Format Document
                               </button>
                               <button 
