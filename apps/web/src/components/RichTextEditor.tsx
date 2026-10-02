@@ -7,9 +7,10 @@ interface RichTextEditorProps {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  footer?: React.ReactNode;
 }
 
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder }) => {
+export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder, footer }) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -102,6 +103,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
         )}
         <EditorContent editor={editor} className="h-full font-mono text-sm leading-relaxed" />
       </div>
+      {footer && <div className="p-3 border-t border-synora-border bg-synora-bg/30 flex items-center gap-2 overflow-x-auto rounded-b-xl">{footer}</div>}
     </div>
   );
 };
