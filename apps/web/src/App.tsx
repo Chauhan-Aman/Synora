@@ -293,6 +293,7 @@ function App() {
   const [draftContext, setDraftContext] = useState<any[]>([]);
   const [isGeneratingParagraph, setIsGeneratingParagraph] = useState(false);
   const [isProofreading, setIsProofreading] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [suggestedParagraph, setSuggestedParagraph] = useState<string>("");
   const [revisionPrompt, setRevisionPrompt] = useState<string>("");
   const [isRevising, setIsRevising] = useState(false);
@@ -896,6 +897,34 @@ function App() {
       console.error("Error proofreading document:", error);
     } finally {
       setIsProofreading(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!draftText.trim()) return;
+    setIsSavingDraft(true);
+    try {
+      const res = await fetchWithAuth('http://localhost:3001/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          title: 'My Article', 
+          text: draftText,
+          type: 'TEXT',
+          tags: ['Draft']
+        })
+      });
+      if (res.ok) {
+        showToast('Saved to Knowledge Graph', 'success');
+        fetchKnowledge();
+      } else {
+        showToast('Failed to save draft', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      showToast('Error saving draft', 'error');
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -2364,6 +2393,18 @@ function App() {
                     Editor
                   </h2>
                   <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar w-full xl:w-auto pb-1 xl:pb-0">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={isSavingDraft || draftText.trim().length < 10}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-synora-surface border border-synora-border hover:border-synora-accent/50 text-white rounded-lg transition-all disabled:opacity-50 text-xs font-bold whitespace-nowrap shrink-0 shadow-sm"
+                      title="Save as Note in Knowledge Graph"
+                    >
+                      {isSavingDraft ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                      ) : (
+                        <><Save className="w-4 h-4 text-blue-400" /> Save Note</>
+                      )}
+                    </button>
                     <button
                       onClick={handleGenerateCover}
                       disabled={isGeneratingCover || draftText.trim().length < 20}
