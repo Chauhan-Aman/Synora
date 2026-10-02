@@ -25,8 +25,10 @@ Synora is a modern monorepo built with performance, aesthetics, and modularity i
 
 ### **Frontend (`apps/web`)**
 - **React 18** (Vite)
+- **Zustand / Custom Hooks** for state management (Modularized architecture)
 - **Tailwind CSS** for sleek, responsive styling
 - **Lucide React** for beautiful iconography
+- **TipTap** for headless Rich Text Editing in the Create Studio
 - **React Force Graph** for rich data visualization
 - **Server-Sent Events (SSE)** for real-time AI response streaming
 

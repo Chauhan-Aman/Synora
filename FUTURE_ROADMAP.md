@@ -225,3 +225,13 @@ These are ambitious ideas that may require external APIs or significant R&D:
 - [x] PDF text extraction via pdf-parse
 - [x] Image transcription via llama3.2-vision
 - [x] YouTube transcript extraction via youtube-transcript
+
+### Phase 23 - Frontend Refactoring & Build Stabilization
+- [x] Extracted UI tabs to individual components
+- [x] Extracted logic into custom hooks (useAuth, useCreate, etc.)
+- [x] Resolved TypeScript compilation errors and UTF-16 BOM issues
+
+### Phase 24 - Inline Editing
+- [x] Added inline title editing for Knowledge Artifacts in Reader Modal
+- [x] Added inline title editing for Knowledge Artifacts in List Cards
+
