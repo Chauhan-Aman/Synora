@@ -29,6 +29,9 @@ export interface PublishTabProps {
 export const PublishTab: React.FC<PublishTabProps> = ({
   fetchWithAuth, isPublishing, publishCopied, publishFormat, publishOutput, publishSelectedTopics, publishStyle, setIsPublishing, setPublishCopied, setPublishFormat, setPublishOutput, setPublishSelectedTopics, setPublishStyle, topics
 }) => {
+  const [topicSearch, setTopicSearch] = React.useState('');
+  const filteredTopics = topics.filter((t: any) => t.name.toLowerCase().includes(topicSearch.toLowerCase()));
+
   return (
     <>
 {/* PUBLISH TAB */}
@@ -37,7 +40,7 @@ export const PublishTab: React.FC<PublishTabProps> = ({
           <div className="max-w-6xl w-full mx-auto flex flex-col h-full min-h-0">
             <div className="mb-8 shrink-0 print:hidden">
               <h2 className="text-3xl font-bold text-white mb-2">Content Pipeline</h2>
-              <p className="text-synora-text-secondary">Transform your knowledge graph into publishable content using local AI.</p>
+              <p className="text-synora-text-secondary">Transform your knowledge graph into publishable content using Synora.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
@@ -78,11 +81,25 @@ export const PublishTab: React.FC<PublishTabProps> = ({
 
                 <div className="glass-panel p-5">
                   <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2"><BrainCircuit className="w-4 h-4 text-synora-accent" /> Topics ({publishSelectedTopics.size} selected)</h3>
+                  
+                  <div className="relative mb-3">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-synora-text-secondary" />
+                    <input 
+                      type="text"
+                      placeholder="Search topics..."
+                      value={topicSearch}
+                      onChange={e => setTopicSearch(e.target.value)}
+                      className="w-full glass-input bg-synora-bg/50 !pl-10 py-2 text-sm outline-none focus:border-synora-accent"
+                    />
+                  </div>
+
                   <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                    {topics.length === 0 ? (
-                      <p className="text-xs text-synora-text-secondary">No topics yet. Capture some content first.</p>
+                    {filteredTopics.length === 0 ? (
+                      <p className="text-xs text-synora-text-secondary">
+                        {topics.length === 0 ? "No topics yet. Capture some content first." : "No topics match your search."}
+                      </p>
                     ) : (
-                      topics.map(topic => (
+                      filteredTopics.map((topic: any) => (
                         <button
                           key={topic.id}
                           onClick={() => {
@@ -106,7 +123,7 @@ export const PublishTab: React.FC<PublishTabProps> = ({
                   onClick={async () => {
                     setIsPublishing(true);
                     setPublishOutput('');
-                    const res = await fetchWithAuth(`http://localhost:3001/publish/${publishFormat}`, {
+                    const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/publish/${publishFormat}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ topicIds: Array.from(publishSelectedTopics), style: publishStyle }),

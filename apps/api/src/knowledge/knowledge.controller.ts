@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Delete } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { KnowledgeService } from './knowledge.service';
@@ -51,5 +51,10 @@ export class KnowledgeController {
   @Post('insights/generate')
   async generateInsights(@CurrentUser() user: any) {
     return this.knowledgeService.generateInsights(user.userId);
+  }
+
+  @Delete('wipe')
+  async wipeKnowledgeBase(@CurrentUser() user: any) {
+    return this.knowledgeService.wipeKnowledgeBase(user.userId);
   }
 }

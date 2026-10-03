@@ -10,10 +10,15 @@ export class KnowledgeService {
 
   async getTopics(userId: string) {
     const topics = await this.prisma.topic.findMany({
-      where: { userId },
+      where: { 
+        userId,
+        artifacts: {
+          some: { status: 'completed' }
+        }
+      },
       include: {
         _count: {
-          select: { artifacts: true }
+          select: { artifacts: { where: { status: 'completed' } } }
         }
       },
       orderBy: {
@@ -32,10 +37,15 @@ export class KnowledgeService {
 
   async getEntities(userId: string) {
     const entities = await this.prisma.entity.findMany({
-      where: { userId },
+      where: { 
+        userId,
+        artifacts: {
+          some: { status: 'completed' }
+        }
+      },
       include: {
         _count: {
-          select: { artifacts: true }
+          select: { artifacts: { where: { status: 'completed' } } }
         }
       },
       orderBy: {
@@ -238,7 +248,7 @@ export class KnowledgeService {
     `;
 
     try {
-      const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+      const ollamaResponse = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,5 +316,26 @@ export class KnowledgeService {
       this.logger.error('Insights generation failed:', error);
       throw error;
     }
+  }
+
+  async wipeKnowledgeBase(userId: string) {
+    this.logger.warn(`Wiping knowledge base for user ${userId}`);
+    
+    await this.prisma.$transaction([
+      this.prisma.chunk.deleteMany({ where: { userId } }),
+      this.prisma.flashcard.deleteMany({ where: { userId } }),
+      this.prisma.summary.deleteMany({ where: { userId } }),
+      this.prisma.annotation.deleteMany({ where: { userId } }),
+      this.prisma.insight.deleteMany({ where: { userId } }),
+      this.prisma.recommendation.deleteMany({ where: { userId } }),
+      
+      this.prisma.topic.deleteMany({ where: { userId } }),
+      this.prisma.entity.deleteMany({ where: { userId } }),
+      this.prisma.collection.deleteMany({ where: { userId } }),
+      
+      this.prisma.artifact.deleteMany({ where: { userId } })
+    ]);
+    
+    return { success: true, message: 'Knowledge base wiped successfully' };
   }
 }
