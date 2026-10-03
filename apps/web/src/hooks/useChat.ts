@@ -26,7 +26,7 @@ export function useChat(token: string | null, fetchWithAuth: any) {
     setChatHistory(prev => [...prev, { role: 'assistant', content: '', sources: [], agentLogs: [] }]);
 
     try {
-      const response = await fetchWithAuth('http://localhost:3001/chat', {
+      const response = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig, sessionId: currentSessionId }),

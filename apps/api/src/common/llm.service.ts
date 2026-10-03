@@ -29,9 +29,9 @@ export interface AgentLoopCallbacks {
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
 
-  public static readonly OLLAMA_URL = 'http://localhost:11434/api/generate';
-  public static readonly OLLAMA_CHAT_URL = 'http://localhost:11434/api/chat';
-  public static readonly EMBEDDING_URL = 'http://localhost:11434/api/embeddings';
+  public static readonly OLLAMA_URL = `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`;
+  public static readonly OLLAMA_CHAT_URL = `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/chat`;
+  public static readonly EMBEDDING_URL = `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/embeddings`;
 
   /** Maximum number of agent reasoning loops before forcing a response. */
   private static readonly MAX_AGENT_LOOPS = 8;

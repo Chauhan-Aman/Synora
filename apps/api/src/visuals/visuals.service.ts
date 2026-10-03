@@ -42,7 +42,7 @@ flowchart LR
 Generate a ${type} diagram for the following text:
 "${text.substring(0, 3000)}"`;
 
-      const response = await fetch('http://localhost:11434/api/generate', {
+      const response = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,7 +53,7 @@ Generate a ${type} diagram for the following text:
         })
       });
 
-      if (!response.ok) throw new Error('Failed to reach local AI');
+      if (!response.ok) throw new Error('Failed to reach Synora');
       const data = await response.json();
       
       // Clean up the output to ensure it's just raw mermaid code
@@ -98,7 +98,7 @@ Format:
   "mood": "string" // A one word description like "Futuristic", "Nature", "Academic"
 }`;
 
-      const response = await fetch('http://localhost:11434/api/generate', {
+      const response = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +110,7 @@ Format:
         })
       });
 
-      if (!response.ok) throw new Error('Failed to reach local AI');
+      if (!response.ok) throw new Error('Failed to reach Synora');
       const data = await response.json();
       
       return JSON.parse(data.response.trim());

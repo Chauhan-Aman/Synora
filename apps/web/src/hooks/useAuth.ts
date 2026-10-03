@@ -33,7 +33,7 @@ export function useAuth() {
     setAuthError('');
     setIsAuthenticating(true);
     try {
-      const res = await fetch('http://localhost:3001/auth/login', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -54,7 +54,7 @@ export function useAuth() {
     setAuthError('');
     setIsAuthenticating(true);
     try {
-      const res = await fetch('http://localhost:3001/auth/register', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -78,7 +78,7 @@ export function useAuth() {
   const savePreferences = async () => {
     setIsSavingPreferences(true);
     try {
-      await fetchWithAuth('http://localhost:3001/auth/preferences', {
+      await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/auth/preferences`, {
         method: 'PUT',
         body: JSON.stringify({ preferences: userPreferences })
       });
@@ -92,7 +92,7 @@ export function useAuth() {
 
   useEffect(() => {
     if (token && isSettingsOpen) {
-      fetchWithAuth('http://localhost:3001/auth/preferences')
+      fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/auth/preferences`)
         .then(res => res.json())
         .then(data => {
           if (data.preferences) setUserPreferences(data.preferences);

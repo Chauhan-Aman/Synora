@@ -129,7 +129,7 @@ function App() {
   const renameArtifact = async (id, newTitle) => {
     if (!newTitle.trim()) return;
     try {
-      const res = await fetchWithAuth(`http://localhost:3001/capture/${id}/title`, {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/${id}/title`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle.trim() }),
@@ -184,7 +184,7 @@ function App() {
 
   useEffect(() => {
     if (selectedArtifact && token) {
-      fetch(`http://localhost:3001/annotations/artifact/${selectedArtifact.id}`, {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/annotations/artifact/${selectedArtifact.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -323,7 +323,7 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      fetchWithAuth('http://localhost:3001/auth/profile')
+      fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/auth/profile`)
         .then(res => res.json())
         .then(data => setUserPreferences(data.preferences || ''))
         .catch(err => console.error('Failed to fetch profile', err));
@@ -341,7 +341,7 @@ function App() {
         return;
       }
       try {
-        const res = await fetchWithAuth('http://localhost:3001/create/context', {
+        const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/create/context`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ draft: draftText })
@@ -393,8 +393,15 @@ function App() {
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
       recognition.onerror = (e: any) => {
-        console.error('Speech recognition error', e);
+        console.error('Speech recognition error', e.error);
         setIsListening(false);
+        if (e.error === 'not-allowed') {
+          showToast('Microphone access denied. Please allow it in your browser settings.', 'error');
+        } else if (e.error === 'no-speech') {
+          // ignore or show toast
+        } else {
+          showToast(`Speech recognition error: ${e.error}`, 'error');
+        }
       };
       
       recognition.onresult = (e: any) => {
@@ -415,7 +422,11 @@ function App() {
   }, []);
 
   const toggleListening = () => {
-    if (!recognitionRef.current) return;
+    if (!recognitionRef.current) {
+      showToast('Speech recognition is not supported in this browser. Please use Chrome or Edge.', 'error');
+      return;
+    }
+    
     if (isListening) {
       recognitionRef.current.stop();
     } else {
@@ -423,7 +434,12 @@ function App() {
         synthRef.current.cancel();
         setIsSpeaking(false);
       }
-      recognitionRef.current.start();
+      try {
+        recognitionRef.current.start();
+      } catch (err: any) {
+        console.error(err);
+        showToast('Could not start microphone.', 'error');
+      }
     }
   };
 
@@ -471,7 +487,7 @@ function App() {
 
     try {
       const endpoint = authMode === 'LOGIN' ? '/auth/login' : '/auth/register';
-      const res = await fetch(`http://localhost:3001${endpoint}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -503,12 +519,12 @@ function App() {
     setIsLoadingKnowledge(true);
     try {
       const [topicsRes, entitiesRes, graphRes, artifactsRes, collectionsRes, insightsRes] = await Promise.all([
-        fetchWithAuth('http://localhost:3001/knowledge/topics'),
-        fetchWithAuth('http://localhost:3001/knowledge/entities'),
-        fetchWithAuth('http://localhost:3001/knowledge/graph'),
-        fetchWithAuth('http://localhost:3001/knowledge/artifacts'),
-        fetchWithAuth('http://localhost:3001/knowledge/collections'),
-        fetchWithAuth('http://localhost:3001/knowledge/insights')
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/topics`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/entities`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/graph`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/artifacts`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/collections`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/insights`)
       ]);
       const topicsData = await topicsRes.json();
       const entitiesData = await entitiesRes.json();
@@ -538,7 +554,7 @@ function App() {
   const fetchLearn = async () => {
     setIsLoadingLearn(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3001/learn/due');
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/learn/due`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to fetch flashcards');
       setFlashcards(data);
@@ -555,8 +571,8 @@ function App() {
     setIsLoadingDiscover(true);
     try {
       const [feedRes, profileRes] = await Promise.all([
-        fetchWithAuth('http://localhost:3001/discovery/feed'),
-        fetchWithAuth('http://localhost:3001/discovery/taste-profile')
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/discovery/feed`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/discovery/taste-profile`)
       ]);
       if (feedRes.ok) setRecommendations(await feedRes.json());
       if (profileRes.ok) setTasteProfile((await profileRes.json()).profile);
@@ -570,7 +586,7 @@ function App() {
   const handleLoadMore = async () => {
     setIsLoadingDiscover(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3001/discovery/generate-more', { method: 'POST' });
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/discovery/generate-more`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setRecommendations(prev => [...prev, ...data]);
@@ -586,7 +602,7 @@ function App() {
     setIsGeneratingCustom(true);
     showToast("Generating custom exploration...", "info");
     try {
-      const res = await fetchWithAuth('http://localhost:3001/discovery/custom', {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/discovery/custom`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: customTopic })
@@ -609,7 +625,7 @@ function App() {
     setIsTranslating(true);
     showToast("Translating to English...", "info");
     try {
-      const res = await fetchWithAuth(`http://localhost:3001/capture/${artifactId}/translate`, {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/${artifactId}/translate`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error('Translation failed');
@@ -632,7 +648,7 @@ function App() {
     setIsFormatting(true);
     showToast("Formatting document...", "info");
     try {
-      const res = await fetchWithAuth(`http://localhost:3001/capture/${artifactId}/format`, {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/${artifactId}/format`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error('Formatting failed');
@@ -653,7 +669,7 @@ function App() {
     setIsGeneratingSummary(true);
     showToast("Generating AI Summary...", "info");
     try {
-      const res = await fetchWithAuth(`http://localhost:3001/capture/${artifactId}/summary`, {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/${artifactId}/summary`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error('Summary generation failed');
@@ -673,7 +689,7 @@ function App() {
   const handleExplore = async (id: string) => {
     setExploringId(id);
     try {
-      const res = await fetchWithAuth(`http://localhost:3001/discovery/${id}/explore`, { method: 'POST' });
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/discovery/${id}/explore`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to explore');
       setRecommendations(prev => prev.filter(r => r.id !== id));
       showToast("Artifact generated and sent for processing! Check your Knowledge Graph soon.", "success");
@@ -687,7 +703,7 @@ function App() {
   const handleDiveDeeper = async (id: string) => {
     setDivingId(id);
     try {
-      const res = await fetchWithAuth(`http://localhost:3001/discovery/${id}/dive-deeper`, { method: 'POST' });
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/discovery/${id}/dive-deeper`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to dive deeper');
       const data = await res.json();
       setNestedRecommendations(prev => ({
@@ -706,7 +722,7 @@ function App() {
     if (!card) return;
 
     try {
-      await fetchWithAuth(`http://localhost:3001/learn/review/${card.id}`, {
+      await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/learn/review/${card.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score })
@@ -738,12 +754,12 @@ function App() {
         const formData = new FormData();
         formData.append('file', selectedFile as File);
         
-        response = await fetchWithAuth('http://localhost:3001/capture/upload', {
+        response = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/upload`, {
           method: 'POST',
           body: formData,
         });
       } else {
-        response = await fetchWithAuth('http://localhost:3001/capture', {
+        response = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -754,15 +770,20 @@ function App() {
         });
       }
 
-      if (!response.ok) throw new Error('Failed to submit capture');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to submit capture');
+      }
 
       const data = await response.json();
       setArtifactId(data.artifactId);
       setStatus('success');
+      showToast('Successfully added to Knowledge Graph!', 'success');
       setInputValue('');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setStatus('error');
+      showToast(err.message || 'Failed to submit capture', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -781,7 +802,7 @@ function App() {
     setChatHistory(prev => [...prev, { role: 'assistant', content: '', sources: [], agentLogs: [] }]);
 
     try {
-      const response = await fetchWithAuth('http://localhost:3001/chat', {
+      const response = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMessage, history: chatHistory, forceWebSearch, model: modelConfig, sessionId: currentSessionId }),
@@ -874,7 +895,7 @@ function App() {
     if (!draftText.trim() || isGeneratingParagraph) return;
     setIsGeneratingParagraph(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3001/create/generate', {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/create/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftText, context: draftContext, model: modelConfig })
@@ -894,7 +915,7 @@ function App() {
     if (!draftText.trim() || isProofreading) return;
     setIsProofreading(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3001/create/proofread', {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/create/proofread`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftText, model: modelConfig })
@@ -916,8 +937,8 @@ function App() {
 
     try {
       const url = activeDraftId 
-        ? `http://localhost:3001/capture/${activeDraftId}`
-        : 'http://localhost:3001/capture';
+        ? `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/${activeDraftId}`
+        : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture`;
       
       const method = activeDraftId ? 'PUT' : 'POST';
 
@@ -939,7 +960,7 @@ function App() {
         // Find or create "Drafts" collection
         let draftsCollection = collections.find(c => c.name === 'Drafts');
         if (!draftsCollection) {
-          const cRes = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
+          const cRes = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/collections`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: 'Drafts' })
@@ -950,7 +971,7 @@ function App() {
         // Add to Drafts collection
         if (draftsCollection) {
           try {
-            await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${data.artifactId}/collections`, {
+            await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/artifacts/${data.artifactId}/collections`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ collectionId: draftsCollection.id })
@@ -963,7 +984,7 @@ function App() {
         // Add to active collection if one is selected and it's not Drafts
         if (selectedCollectionId && selectedCollectionId !== draftsCollection?.id) {
           try {
-            await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${data.artifactId}/collections`, {
+            await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/artifacts/${data.artifactId}/collections`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ collectionId: selectedCollectionId })
@@ -990,7 +1011,7 @@ function App() {
     if (!draftText.trim() || isGeneratingCover) return;
     setIsGeneratingCover(true);
     try {
-      const response = await fetch(`http://localhost:3001/visuals/cover-theme`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/visuals/cover-theme`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ title: 'My Article', content: draftText })
@@ -1042,7 +1063,7 @@ function App() {
     if (!suggestedParagraph.trim() || !revisionPrompt.trim() || isRevising) return;
     setIsRevising(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3001/create/rewrite', {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/create/rewrite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftText, suggestedParagraph, instructions: revisionPrompt, context: draftContext, model: modelConfig })
@@ -1135,7 +1156,7 @@ function App() {
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
                 className="glass-input w-full bg-synora-bg/50" 
-                placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó"
+                placeholder="••••••••"
                 required 
               />
             </div>
@@ -1509,7 +1530,7 @@ function App() {
                   placeholder="e.g. Machine Learning"
                   onKeyDown={async e => {
                     if (e.key === 'Enter' && newCollectionName.trim()) {
-                      const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
+                      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/collections`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: newCollectionName.trim() })
@@ -1533,7 +1554,7 @@ function App() {
                 <button 
                   disabled={!newCollectionName.trim()}
                   onClick={async () => {
-                    const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
+                    const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/collections`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ name: newCollectionName.trim() })
@@ -1585,7 +1606,7 @@ function App() {
                   <button
                     key={col.id}
                     onClick={async () => {
-                      await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${showAddToCollectionModal.artifactId}/collections`, {
+                      await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/artifacts/${showAddToCollectionModal.artifactId}/collections`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ collectionId: col.id })

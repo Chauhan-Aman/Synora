@@ -17,7 +17,7 @@ export function useCreate(token: string | null, fetchWithAuth: any, showToast: a
     if (!draftText.trim() || isProofreading) return;
     setIsProofreading(true);
     try {
-      const res = await fetchWithAuth('http://localhost:3001/create/proofread', {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/create/proofread`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ draft: draftText, model: modelConfig })

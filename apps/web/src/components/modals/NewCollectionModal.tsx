@@ -17,7 +17,7 @@ export const NewCollectionModal: React.FC<NewCollectionModalProps> = ({
 
   const handleCreate = async () => {
     if (!newCollectionName.trim()) return;
-    const res = await fetchWithAuth('http://localhost:3001/knowledge/collections', {
+    const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/collections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newCollectionName.trim() })

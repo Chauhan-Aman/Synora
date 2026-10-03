@@ -300,7 +300,7 @@ export const KnowledgeTab: React.FC<KnowledgeTabProps> = ({
                           onClick={async () => {
                             setIsGeneratingInsights(true);
                             try {
-                              const res = await fetchWithAuth('http://localhost:3001/knowledge/insights/generate', { method: 'POST' });
+                              const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/insights/generate`, { method: 'POST' });
                               if (res.ok) setInsights(await res.json());
                             } catch(e) { console.error(e) }
                             setIsGeneratingInsights(false);
@@ -543,7 +543,7 @@ export const KnowledgeTab: React.FC<KnowledgeTabProps> = ({
                                 message: 'Are you sure you want to permanently delete this document? This action cannot be undone and will remove it from your knowledge graph.',
                                 onConfirm: async () => {
                                   try {
-                                    const res = await fetch(`http://localhost:3001/capture/${selectedArtifact.id}`, {
+                                    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/${selectedArtifact.id}`, {
                                       method: 'DELETE',
                                       headers: { 'Authorization': `Bearer ${token}` }
                                     });
@@ -590,7 +590,7 @@ export const KnowledgeTab: React.FC<KnowledgeTabProps> = ({
                               if (isGeneratingDiagram) return;
                               setIsGeneratingDiagram(true);
                               try {
-                                const response = await fetch(`http://localhost:3001/visuals/diagram`, {
+                                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/visuals/diagram`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                   body: JSON.stringify({ text: selectedArtifact.content || (selectedArtifact.summary?.text || selectedArtifact.summary) || '' })
@@ -706,7 +706,7 @@ export const KnowledgeTab: React.FC<KnowledgeTabProps> = ({
                                 onChange={e => setNewAnnotation(e.target.value)}
                                 onKeyDown={async (e) => {
                                   if (e.key === 'Enter' && newAnnotation.trim()) {
-                                    const res = await fetch(`http://localhost:3001/annotations/artifact/${selectedArtifact.id}`, {
+                                    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/annotations/artifact/${selectedArtifact.id}`, {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                       body: JSON.stringify({ text: newAnnotation.trim() })
@@ -723,7 +723,7 @@ export const KnowledgeTab: React.FC<KnowledgeTabProps> = ({
                               <button 
                                 onClick={async () => {
                                   if (!newAnnotation.trim()) return;
-                                  const res = await fetch(`http://localhost:3001/annotations/artifact/${selectedArtifact.id}`, {
+                                  const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/annotations/artifact/${selectedArtifact.id}`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                                     body: JSON.stringify({ text: newAnnotation.trim() })
@@ -752,7 +752,7 @@ export const KnowledgeTab: React.FC<KnowledgeTabProps> = ({
                                         message: 'Are you sure you want to delete this annotation?',
                                         onConfirm: async () => {
                                           try {
-                                            const res = await fetch(`http://localhost:3001/annotations/${ann.id}`, {
+                                            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/annotations/${ann.id}`, {
                                               method: 'DELETE',
                                               headers: { 'Authorization': `Bearer ${token}` }
                                             });

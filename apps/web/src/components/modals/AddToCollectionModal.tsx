@@ -47,7 +47,7 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
               <button
                 key={col.id}
                 onClick={async () => {
-                  await fetchWithAuth(`http://localhost:3001/knowledge/artifacts/${artifactId}/collections`, {
+                  await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/artifacts/${artifactId}/collections`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ collectionId: col.id })

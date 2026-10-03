@@ -20,7 +20,7 @@ export class CreateService {
       // Use the last 500 characters of the draft for context searching
       const recentContext = draftText.slice(-500);
 
-      const embeddingResponse = await fetch('http://localhost:11434/api/embeddings', {
+      const embeddingResponse = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/embeddings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,7 +144,7 @@ CURRENT DRAFT:
 ${draftText}
       `.trim();
 
-      const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+      const ollamaResponse = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -192,7 +192,7 @@ SUGGESTED PARAGRAPH TO REWRITE:
 ${suggestedParagraph}
       `.trim();
 
-      const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+      const ollamaResponse = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -229,7 +229,7 @@ DOCUMENT TO PROOFREAD:
 ${draftText}
       `.trim();
 
-      const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+      const ollamaResponse = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

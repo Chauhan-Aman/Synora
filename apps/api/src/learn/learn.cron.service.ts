@@ -75,7 +75,7 @@ export class LearnCronService {
       `;
       
       try {
-        const ollamaRes = await fetch('http://localhost:11434/api/generate', {
+        const ollamaRes = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

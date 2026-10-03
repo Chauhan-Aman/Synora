@@ -24,7 +24,7 @@ export class KnowledgeGraphTool extends AgentTool {
     required: ['query'],
   };
 
-  private static readonly EMBEDDING_URL = 'http://localhost:11434/api/embeddings';
+  private static readonly EMBEDDING_URL = `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/embeddings`;
 
   constructor(
     private readonly prisma: PrismaClient | any,
@@ -108,7 +108,7 @@ export class KnowledgeGraphTool extends AgentTool {
         if (hasNonEnglishScript) {
           try {
             // Quick embedded fetch to local ollama for translation to keep tool self-contained
-            const tRes = await fetch('http://localhost:11434/api/generate', {
+            const tRes = await fetch(`${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/generate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

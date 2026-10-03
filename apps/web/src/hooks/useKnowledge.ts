@@ -31,12 +31,12 @@ export function useKnowledge(token: string | null, activeTab: string, fetchWithA
     setIsLoadingKnowledge(true);
     try {
       const [topicsRes, entitiesRes, graphRes, artifactsRes, collectionsRes, insightsRes] = await Promise.all([
-        fetchWithAuth('http://localhost:3001/knowledge/topics'),
-        fetchWithAuth('http://localhost:3001/knowledge/entities'),
-        fetchWithAuth('http://localhost:3001/knowledge/graph'),
-        fetchWithAuth('http://localhost:3001/knowledge/artifacts'),
-        fetchWithAuth('http://localhost:3001/knowledge/collections'),
-        fetchWithAuth('http://localhost:3001/knowledge/insights')
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/topics`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/entities`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/graph`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/artifacts`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/collections`),
+        fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/knowledge/insights`)
       ]);
       const topicsData = await topicsRes.json();
       const entitiesData = await entitiesRes.json();

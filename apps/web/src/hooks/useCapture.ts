@@ -30,12 +30,12 @@ export function useCapture(token: string | null, fetchWithAuth: any, fetchKnowle
         const formData = new FormData();
         formData.append('file', selectedFile as File);
         
-        response = await fetchWithAuth('http://localhost:3001/capture/upload', {
+        response = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture/upload`, {
           method: 'POST',
           body: formData,
         });
       } else {
-        response = await fetchWithAuth('http://localhost:3001/capture', {
+        response = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/capture`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
