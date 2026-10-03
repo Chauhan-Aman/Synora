@@ -20,6 +20,7 @@ export class PublishService {
         where: { id: { in: topicIds }, userId },
         include: {
           artifacts: {
+            where: { status: 'completed' },
             include: { summary: true },
             take: 3,
           },

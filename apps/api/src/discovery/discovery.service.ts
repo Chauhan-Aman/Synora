@@ -70,8 +70,11 @@ export class DiscoveryService {
   private async generateDailyFeed(userId: string) {
     // 1. Get user context
     const topTopics = await this.prisma.topic.findMany({
-      where: { userId },
-      include: { _count: { select: { artifacts: true } } },
+      where: { 
+        userId,
+        artifacts: { some: { status: 'completed' } } 
+      },
+      include: { _count: { select: { artifacts: { where: { status: 'completed' } } } } },
       orderBy: { artifacts: { _count: 'desc' } },
       take: 10,
     });
@@ -199,8 +202,11 @@ Output ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown
 
   async getTasteProfile(userId: string) {
     const topTopics = await this.prisma.topic.findMany({
-      where: { userId },
-      include: { _count: { select: { artifacts: true } } },
+      where: { 
+        userId,
+        artifacts: { some: { status: 'completed' } } 
+      },
+      include: { _count: { select: { artifacts: { where: { status: 'completed' } } } } },
       orderBy: { artifacts: { _count: 'desc' } },
       take: 10,
     });

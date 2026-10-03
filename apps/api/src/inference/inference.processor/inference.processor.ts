@@ -37,6 +37,7 @@ export class InferenceProcessor extends WorkerHost {
 
     const artifact = await this.prisma.artifact.findUnique({
       where: { id: artifactId },
+      include: { user: true }
     });
 
     if (!artifact) {
@@ -66,33 +67,36 @@ export class InferenceProcessor extends WorkerHost {
             }
             contentToProcess = transcript.map(t => t.text).join(' ').replace(/\s+/g, ' ').trim();
           } catch (error: any) {
-            this.logger.warn(`Failed to fetch YouTube transcript: ${error.message}`);
-            contentToProcess = "Failed to fetch YouTube transcript.";
+            throw new Error(`FATAL_FETCH_ERROR: Failed to fetch YouTube transcript: ${error.message}`);
           }
         } else {
           this.logger.log(`Fetching content from URL: ${artifact.sourceUrl}`);
-          const response = await fetch(artifact.sourceUrl);
-          const html = await response.text();
+          try {
+            const response = await fetch(artifact.sourceUrl);
+            const html = await response.text();
 
-          // Extract clean article HTML using Readability
-          const dom = new JSDOM(html, { url: artifact.sourceUrl });
-          const reader = new Readability(dom.window.document);
-          const article = reader.parse();
-          
-          let cleanHtml = article?.content || '';
-          
-          // Fallback to cheerio if Readability fails
-          if (!cleanHtml) {
-            const $ = cheerio.load(html);
-            $('script, style, nav, footer, iframe, noscript, header, aside').remove();
-            cleanHtml = $('body').html() || '';
+            // Extract clean article HTML using Readability
+            const dom = new JSDOM(html, { url: artifact.sourceUrl });
+            const reader = new Readability(dom.window.document);
+            const article = reader.parse();
+            
+            let cleanHtml = article?.content || '';
+            
+            // Fallback to cheerio if Readability fails
+            if (!cleanHtml) {
+              const $ = cheerio.load(html);
+              $('script, style, nav, footer, iframe, noscript, header, aside').remove();
+              cleanHtml = $('body').html() || '';
+            }
+
+            const turndownService = new TurndownService({
+              headingStyle: 'atx',
+              codeBlockStyle: 'fenced'
+            });
+            contentToProcess = turndownService.turndown(cleanHtml);
+          } catch (error: any) {
+            throw new Error(`FATAL_FETCH_ERROR: Failed to fetch URL content: ${error.message}`);
           }
-
-          const turndownService = new TurndownService({
-            headingStyle: 'atx',
-            codeBlockStyle: 'fenced'
-          });
-          contentToProcess = turndownService.turndown(cleanHtml);
         }
 
         await this.prisma.artifact.update({
@@ -130,8 +134,7 @@ export class InferenceProcessor extends WorkerHost {
           const visionData = await visionRes.json();
           contentToProcess = visionData.response.trim();
         } else {
-          this.logger.warn('llama3.2-vision failed, ensure you have run `ollama pull llama3.2-vision`');
-          contentToProcess = "Failed to process image with Vision model.";
+          throw new Error('FATAL_FETCH_ERROR: Failed to process image with Vision model. Ensure you have run `ollama pull llama3.2-vision`');
         }
 
         await this.prisma.artifact.update({
@@ -142,21 +145,24 @@ export class InferenceProcessor extends WorkerHost {
 
       this.logger.log(`Sending to Ollama (${targetModel}) for extraction...`);
 
+      const userPreferences = artifact.user?.preferences ? `\nUSER CUSTOM INSTRUCTIONS:\n${artifact.user.preferences}\n` : '';
+
       const prompt = `
         You are an expert Knowledge Graph AI. Your ONLY job is to extract MEANINGFUL, ACCURATE structured data from the given text.
-
+        ${userPreferences}
         STRICT RULES — READ CAREFULLY:
         
         For "topics" (array of strings):
         - ONLY extract the core academic, technical, or professional subjects discussed.
-        - Topics must be 2-5 words and read like Wikipedia article titles (e.g., "Dynamic Programming", "Recursion Tree", "Backtracking Algorithms").
-        - DO NOT extract: speaker names, channel names, platform names (YouTube, etc.), greetings, single letters (K, X, n), generic words (Sum, Number, List), or any conversational/social context.
-        - Maximum 5 topics. Quality over quantity.
+        - Prioritize specific domains (e.g. "Computer Vision", "Microservices Architecture", "Machine Learning", "Backend Engineering") over generic terms.
+        - Topics must be 2-5 words and read like Wikipedia article titles.
+        - DO NOT extract: speaker names, channel names, platform names, single letters, generic words, or conversational context.
+        - Maximum 5 topics. Focus on the most dominant and specialized themes.
 
         For "entities" (array of objects):
         - ONLY extract SPECIFIC, REAL-WORLD named entities that are CENTRAL to the text's subject matter.
         - Valid entity types: PERSON (real historical/technical figures), ORGANIZATION (real companies/institutions), TECHNOLOGY (specific programming languages/tools/frameworks), CONCEPT (well-defined academic concepts).
-        - DO NOT extract: variable names, social media platforms, TV shows, channel names, or anything not directly relevant to the core topic.
+        - DO NOT extract: variable names, social media platforms, TV shows, or anything not directly relevant to the core topic.
         - If unsure, leave it out. Empty array is better than wrong entities.
 
         TEXT TO ANALYZE:
@@ -309,11 +315,18 @@ export class InferenceProcessor extends WorkerHost {
 
       this.logger.log(`Successfully completed job ${job.id}`);
     } catch (error) {
-      this.logger.error(`Failed to process job ${job.id}: ${(error as Error).message}`);
-      await this.prisma.artifact.update({
-        where: { id: artifactId },
-        data: { status: 'failed' },
-      });
+      const errMsg = (error as Error).message;
+      this.logger.error(`Failed to process job ${job.id}: ${errMsg}`);
+      
+      if (errMsg.includes('FATAL_FETCH_ERROR')) {
+        await this.prisma.artifact.delete({ where: { id: artifactId } }).catch(() => {});
+      } else {
+        await this.prisma.artifact.update({
+          where: { id: artifactId },
+          data: { status: 'failed' },
+        }).catch(() => {});
+      }
+      
       throw error;
     }
   }

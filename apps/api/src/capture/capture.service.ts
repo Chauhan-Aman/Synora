@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +14,17 @@ export class CaptureService {
   ) {}
 
   async create(createCaptureDto: CreateCaptureDto, userId: string) {
+    if (createCaptureDto.type === 'URL' && createCaptureDto.sourceUrl) {
+      try {
+        const testRes = await fetch(createCaptureDto.sourceUrl, { method: 'GET' });
+        if (!testRes.ok && testRes.status !== 403 && testRes.status !== 401) {
+          throw new Error(`HTTP error! status: ${testRes.status}`);
+        }
+      } catch (err) {
+        throw new BadRequestException('Failed to fetch the URL. Please verify the link is correct and accessible.');
+      }
+    }
+
     // 1. Save to DB with 'pending' status
     const artifact = await this.prisma.artifact.create({
       data: {
