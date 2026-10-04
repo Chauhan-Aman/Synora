@@ -104,43 +104,53 @@ export class InferenceProcessor extends WorkerHost {
           data: { content: contentToProcess },
         });
       } else if (artifact.type === 'PDF' && artifact.content) {
-        this.logger.log(`Parsing PDF file: ${artifact.content}`);
-        const dataBuffer = fs.readFileSync(artifact.content);
-        const pdfParseLib = require('pdf-parse');
-        const data = await pdfParseLib(dataBuffer);
-        contentToProcess = data.text.replace(/\s+/g, ' ').trim();
+        if (artifact.content.length < 500 && (artifact.content.toLowerCase().endsWith('.pdf') || artifact.content.includes('uploads'))) {
+          this.logger.log(`Parsing PDF file: ${artifact.content}`);
+          const dataBuffer = fs.readFileSync(artifact.content);
+          const pdfParseLib = require('pdf-parse');
+          const data = await pdfParseLib(dataBuffer);
+          contentToProcess = data.text.replace(/\s+/g, ' ').trim();
 
-        await this.prisma.artifact.update({
-          where: { id: artifactId },
-          data: { content: contentToProcess },
-        });
-      } else if (artifact.type === 'IMAGE' && artifact.content) {
-        this.logger.log(`Running llama3.2-vision on Image file: ${artifact.content}`);
-        const imageBuffer = fs.readFileSync(artifact.content);
-        const base64Image = imageBuffer.toString('base64');
-        
-        const visionRes = await fetch(LlmService.OLLAMA_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama3.2-vision',
-            prompt: 'Please transcribe all text in this image accurately. If it is a diagram, chart, or infographic, provide a detailed description of the concepts and structures shown.',
-            images: [base64Image],
-            stream: false
-          })
-        });
-        
-        if (visionRes.ok) {
-          const visionData = await visionRes.json();
-          contentToProcess = visionData.response.trim();
+          await this.prisma.artifact.update({
+            where: { id: artifactId },
+            data: { content: contentToProcess },
+          });
         } else {
-          throw new Error('FATAL_FETCH_ERROR: Failed to process image with Vision model. Ensure you have run `ollama pull llama3.2-vision`');
+          // Already parsed in a previous attempt
+          contentToProcess = artifact.content;
         }
+      } else if (artifact.type === 'IMAGE' && artifact.content) {
+        if (artifact.content.length < 500 && artifact.content.includes('uploads')) {
+          this.logger.log(`Running llama3.2-vision on Image file: ${artifact.content}`);
+          const imageBuffer = fs.readFileSync(artifact.content);
+          const base64Image = imageBuffer.toString('base64');
+          
+          const visionRes = await fetch(LlmService.OLLAMA_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'llama3.2-vision',
+              prompt: 'Please transcribe all text in this image accurately. If it is a diagram, chart, or infographic, provide a detailed description of the concepts and structures shown.',
+              images: [base64Image],
+              stream: false
+            })
+          });
+          
+          if (visionRes.ok) {
+            const visionData = await visionRes.json();
+            contentToProcess = visionData.response.trim();
+          } else {
+            throw new Error('FATAL_FETCH_ERROR: Failed to process image with Vision model. Ensure you have run `ollama pull llama3.2-vision`');
+          }
 
-        await this.prisma.artifact.update({
-          where: { id: artifactId },
-          data: { content: contentToProcess },
-        });
+          await this.prisma.artifact.update({
+            where: { id: artifactId },
+            data: { content: contentToProcess },
+          });
+        } else {
+          // Already parsed in a previous attempt
+          contentToProcess = artifact.content;
+        }
       }
 
       this.logger.log(`Sending to Ollama (${targetModel}) for extraction...`);

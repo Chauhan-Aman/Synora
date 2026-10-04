@@ -48,3 +48,6 @@ yarn-error.log*
 # Coverage
 coverage/
 .nyc_output/
+
+# Uploads
+apps/api/uploads/
