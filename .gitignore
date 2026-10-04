@@ -51,3 +51,6 @@ coverage/
 
 # Uploads
 apps/api/uploads/
+
+# Internal Docs
+internal_docs/
