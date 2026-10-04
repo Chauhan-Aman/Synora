@@ -8,9 +8,18 @@ Chat directly with your notes using a streaming, agentic AI assistant that perfo
 
 ---
 
+## 🎥 See it in Action
+
+<video src="./synora-demo.mp4" controls="controls" width="100%"></video>
+
+*(If viewing on GitHub, download the repository to watch the local demo video, or view the uploaded version in the releases).*
+
+---
+
 ## 🌟 Key Features
 
 - **🌐 Autonomous Knowledge Capture:** Paste a URL (including YouTube videos) and let the backend automatically scrape, clean, and extract entities, topics, and relationships to build your graph.
+- **🧩 Chrome Web Clipper:** Synora includes a companion Manifest V3 Chrome Extension that allows you to capture articles and save URLs with a single click directly from your browser.
 - **📄 Multi-modal Ingestion:** Upload PDFs and Images for extraction! Uses `llama3.2-vision` to deeply analyze and transcribe diagrams, infographics, and text from images.
 - **🧠 100% Local AI:** Powered by **Ollama**, Synora uses local LLMs (dynamically routing between `qwen2.5:14b` for reasoning and `llama3.1` for extraction) and `nomic-embed-text` for vector embeddings to ensure your personal data never leaves your machine.
 - **🕸️ Interactive 2D Graph:** Visualize your brain! Explore topics, articles, and entities in a beautiful, physics-based force-directed graph.
@@ -117,6 +126,14 @@ Synora is a modern monorepo built with performance, aesthetics, and modularity i
 
 ## 🛡️ Privacy & Security
 Synora is designed to be a completely private "second brain." Because all AI inference (embeddings, query rewriting, context evaluation, image analysis, and generation) happens locally via Ollama, your personal notes and queries are never sent to third-party cloud APIs (unless explicitly fetching a public URL).
+
+---
+
+## 🙏 Acknowledgements & Gratitude
+
+This project is built upon the shoulders of giants. We want to extend our deepest gratitude to:
+- **[Ollama](https://ollama.com/)**: For entirely democratizing local LLM inference. Without Ollama, building a truly private, fast, and local AI agent simply would not be possible for everyday hardware.
+- **Google Antigravity**: For being an incredible pair-programming agent and making the intense development process of this monorepo smooth, educational, and remarkably productive. 
 
 ---
 
