@@ -10,9 +10,9 @@ Chat directly with your notes using a streaming, agentic AI assistant that perfo
 
 ## 🎥 See it in Action
 
-<video src="./synora-demo.mp4" controls="controls" width="100%"></video>
+<video src="https://github.com/Chauhan-Aman/Synora/raw/master/synora-demo.mp4" controls="controls" muted="muted" width="100%"></video>
 
-*(If viewing on GitHub, download the repository to watch the local demo video, or view the uploaded version in the releases).*
+*(Make sure your volume is on to hear Synora's Voice Assistant!)*
 
 ---
 
