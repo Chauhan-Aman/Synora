@@ -11,15 +11,24 @@ export interface ChatTabProps {
   chatEndRef: any;
   chatHistory: any;
   chatQuery: any;
+  chatSessions?: any;
+  currentSessionId?: any;
+  deleteSession?: any;
+  editingSessionId?: any;
+  editingTitle?: any;
   forceWebSearch: any;
   handleChatSubmit: any;
   isChatting: any;
   isListening: any;
   isSpeaking: any;
   isVoiceEnabled: any;
+  loadSession?: any;
+  renameSession?: any;
   setChatHistory: any;
   setChatQuery: any;
   setCurrentSessionId: any;
+  setEditingSessionId?: any;
+  setEditingTitle?: any;
   setForceWebSearch: any;
   setIsVoiceEnabled: any;
   stopSpeaking: any;
@@ -27,14 +36,98 @@ export interface ChatTabProps {
 }
 
 export const ChatTab: React.FC<ChatTabProps> = ({
-  activeTab, chatEndRef, chatHistory, chatQuery, forceWebSearch, handleChatSubmit, isChatting, isListening, isSpeaking, isVoiceEnabled, setChatHistory, setChatQuery, setCurrentSessionId, setForceWebSearch, setIsVoiceEnabled, stopSpeaking, toggleListening
+  activeTab, chatEndRef, chatHistory, chatQuery, chatSessions, currentSessionId, deleteSession, editingSessionId, editingTitle, forceWebSearch, handleChatSubmit, isChatting, isListening, isSpeaking, isVoiceEnabled, loadSession, renameSession, setChatHistory, setChatQuery, setCurrentSessionId, setEditingSessionId, setEditingTitle, setForceWebSearch, setIsVoiceEnabled, stopSpeaking, toggleListening
 }) => {
   return (
     <>
 {/* CHAT TAB (RAG) */}
           {/* CHAT TAB (RAG) */}
           {activeTab === 'CHAT' && (
-            <div className="w-full max-w-4xl mx-auto glass-panel overflow-hidden flex flex-col h-full border-synora-accent/20 shadow-2xl shadow-synora-accent/5 mt-8">
+            <div className="w-full max-w-6xl mx-auto overflow-hidden flex h-full gap-4 mt-8">
+              {/* Sidebar */}
+              <div className="hidden md:flex w-64 glass-panel border-synora-accent/20 shadow-2xl flex-col h-full rounded-2xl shrink-0 p-4">
+                <div className="flex items-center justify-between mb-4 border-b border-synora-border pb-3 shrink-0">
+                  <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+                    <MessageSquare className="w-4 h-4 text-synora-accent" /> Chat History
+                  </h3>
+                  <button 
+                    onClick={() => {
+                      if (setCurrentSessionId) setCurrentSessionId(null);
+                      setChatHistory([{
+                        role: 'assistant',
+                        content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
+                      }]);
+                    }}
+                    className="p-1.5 bg-synora-accent/10 text-synora-accent hover:bg-synora-accent hover:text-white rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+                  {chatSessions && chatSessions.length > 0 ? chatSessions.map((session: any) => (
+                    <div 
+                      key={session.id} 
+                      className={`group p-3 rounded-xl border transition-all cursor-pointer ${currentSessionId === session.id ? 'bg-synora-accent/10 border-synora-accent' : 'bg-synora-surface border-synora-border hover:border-synora-accent/50'}`}
+                    >
+                      {editingSessionId === session.id ? (
+                        <div className="flex items-center gap-2">
+                          <input 
+                            autoFocus
+                            type="text" 
+                            value={editingTitle} 
+                            onChange={(e) => setEditingTitle && setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') renameSession(session.id, editingTitle);
+                              if (e.key === 'Escape') setEditingSessionId(null);
+                            }}
+                            onBlur={() => renameSession(session.id, editingTitle)}
+                            className="w-full bg-synora-bg border border-synora-accent rounded px-2 py-1 text-xs text-white outline-none"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-2" onClick={() => loadSession && loadSession(session.id)}>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm truncate font-medium ${currentSessionId === session.id ? 'text-synora-accent' : 'text-white/90'}`}>
+                              {session.title || 'New Chat'}
+                            </p>
+                            <p className="text-[10px] text-synora-text-secondary mt-1">
+                              {new Date(session.updatedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (setEditingSessionId) setEditingSessionId(session.id);
+                                if (setEditingTitle) setEditingTitle(session.title || 'New Chat');
+                              }}
+                              className="p-1 text-synora-text-secondary hover:text-white transition-colors"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (deleteSession) deleteSession(session.id);
+                              }}
+                              className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )) : (
+                    <div className="text-center py-8 px-2 text-xs text-synora-text-secondary">
+                      No past conversations.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Chat Area */}
+              <div className="flex-1 glass-panel overflow-hidden flex flex-col h-full border-synora-accent/20 shadow-2xl rounded-2xl">
               <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-h-0 custom-scrollbar pr-2">
                 {chatHistory.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
@@ -117,18 +210,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <div className="p-4 bg-synora-surface border-t border-synora-border shrink-0">
                 <div className="flex items-center justify-between mb-2 px-2">
                   <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => {
-                        setCurrentSessionId(null);
-                        setChatHistory([{
-                          role: 'assistant',
-                          content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!"
-                        }]);
-                      }}
-                      className="flex items-center gap-2 text-xs bg-synora-bg border border-synora-border px-3 py-1 rounded-full text-white hover:border-synora-accent transition-colors"
-                    >
-                      <Plus className="w-3 h-3" /> New Chat
-                    </button>
                     <label className="flex items-center gap-2 text-xs text-synora-text-secondary cursor-pointer hover:text-white transition-colors">
                       <input 
                         type="checkbox" 
@@ -191,6 +272,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
                 </form>
               </div>
+            </div>
             </div>
           )}
 

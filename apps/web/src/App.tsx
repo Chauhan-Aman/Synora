@@ -153,6 +153,79 @@ function App() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [isFormatting, setIsFormatting] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  
+  // Chat Sessions State
+  const [chatSessions, setChatSessions] = useState<any[]>([]);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+
+  const fetchChatSessions = async () => {
+    if (!token) return;
+    try {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/chat/sessions`);
+      if (res.ok) setChatSessions(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'CHAT') {
+      fetchChatSessions();
+    }
+  }, [activeTab, token]);
+
+  const loadSession = async (id: string) => {
+    try {
+      const res = await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/chat/sessions/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentSessionId(data.id);
+        const loadedHistory = data.messages.map((m: any) => ({
+          role: m.role,
+          content: m.content,
+          sources: m.sources || [],
+          agentLogs: m.agentLogs || []
+        }));
+        setChatHistory(loadedHistory.length ? loadedHistory : [{ role: 'assistant', content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!" }]);
+      }
+    } catch (e) {
+      showToast('Failed to load chat session', 'error');
+    }
+  };
+
+  const renameSession = async (id: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      setEditingSessionId(null);
+      return;
+    }
+    try {
+      await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/chat/sessions/${id}/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle })
+      });
+      fetchChatSessions();
+    } catch (e) {
+      showToast('Failed to rename session', 'error');
+    } finally {
+      setEditingSessionId(null);
+    }
+  };
+
+  const deleteSession = async (id: string) => {
+    try {
+      await fetchWithAuth(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/chat/sessions/${id}`, { method: 'DELETE' });
+      if (currentSessionId === id) {
+        setCurrentSessionId(null);
+        setChatHistory([{ role: 'assistant', content: "Hi! I'm Synora. Ask me anything about the links and notes you've captured in your private Knowledge Graph!" }]);
+      }
+      fetchChatSessions();
+    } catch (e) {
+      showToast('Failed to delete session', 'error');
+    }
+  };
+  
   const [knowledgeView, setKnowledgeView] = useState<'LIST' | 'GRAPH' | 'INSIGHTS'>('LIST');
   const [showWebSearches, setShowWebSearches] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -1402,15 +1475,24 @@ function App() {
   chatEndRef={chatEndRef}
   chatHistory={chatHistory}
   chatQuery={chatQuery}
+  chatSessions={chatSessions}
+  currentSessionId={currentSessionId}
+  deleteSession={deleteSession}
+  editingSessionId={editingSessionId}
+  editingTitle={editingTitle}
   forceWebSearch={forceWebSearch}
   handleChatSubmit={handleChatSubmit}
   isChatting={isChatting}
   isListening={isListening}
   isSpeaking={isSpeaking}
   isVoiceEnabled={isVoiceEnabled}
+  loadSession={loadSession}
+  renameSession={renameSession}
   setChatHistory={setChatHistory}
   setChatQuery={setChatQuery}
   setCurrentSessionId={setCurrentSessionId}
+  setEditingSessionId={setEditingSessionId}
+  setEditingTitle={setEditingTitle}
   setForceWebSearch={setForceWebSearch}
   setIsVoiceEnabled={setIsVoiceEnabled}
   stopSpeaking={stopSpeaking}
