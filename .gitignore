@@ -54,3 +54,9 @@ apps/api/uploads/
 
 # Internal Docs
 internal_docs/
+
+# Local keys and tokens
+token.json
+*.pem
+*.key
+*.cert
